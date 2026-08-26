@@ -1,9 +1,17 @@
 import Database from "better-sqlite3";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const db = new Database(path.join(__dirname, "data", "kilele.db"));
+
+// On Render, mount a persistent disk (see render.yaml) and set DATA_DIR to
+// its mount path so the database survives redeploys. Falls back to a local
+// folder for development.
+const dataDir = process.env.DATA_DIR || path.join(__dirname, "data");
+fs.mkdirSync(dataDir, { recursive: true });
+
+const db = new Database(path.join(dataDir, "kilele.db"));
 
 db.pragma("journal_mode = WAL");
 
@@ -39,6 +47,10 @@ CREATE TABLE IF NOT EXISTS quote_requests (
   nights INTEGER,
   wants_game_drives INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'pending',
+  quoted_price INTEGER,
+  quoted_message TEXT,
+  quoted_at TEXT,
+  updated_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
 );

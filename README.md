@@ -37,13 +37,15 @@ You'll need Node.js 18+ installed.
 ```bash
 cd backend
 npm install
-npm run dev
+ADMIN_PASSWORD=whatever-you-like npm run dev
 ```
 
 This creates `backend/data/kilele.db` on first run and seeds it with six
 sample vehicles (saloon, safari 4x4, shuttle van, coaster bus, luxury van,
 and a funeral convoy vehicle). Edit the `vehicles` array in `db.js` to
-match your real fleet.
+match your real fleet. If you skip `ADMIN_PASSWORD`, the server falls back
+to `kilele-admin` and logs a warning — fine for poking around locally,
+not for anything real.
 
 **2. Start the frontend** (runs on http://localhost:5173)
 
@@ -55,7 +57,18 @@ npm run dev
 
 The Vite dev server proxies `/api` requests to the backend automatically
 (see `vite.config.js`), so open http://localhost:5173 and everything just
-works together.
+works together. Visit http://localhost:5173/admin for the staff dashboard.
+
+**Testing the production build locally** (optional) — the backend serves
+the built frontend directly in production, so you can test that exact path
+before deploying:
+
+```bash
+cd frontend && npm run build && cd ../backend && ADMIN_PASSWORD=test node server.js
+```
+
+Then open http://localhost:4000 — both the public site and `/admin` are
+served from the one process, same as on Render.
 
 ## What's built
 
@@ -93,8 +106,10 @@ works together.
   stored on the quote as a plain-text `itinerary` field. VIP unlocks an
   arrival & stay fieldset (flight number, arrival date & time,
   accommodation, nights, game-drive opt-in), validated server-side. VIP
-  references are prefixed `NJ-VIP-` instead of `NJ-`.
+  references are prefixed `KLT-VIP-` instead of `KLT-`.
 - **About / Contact** — company positioning and direct contact info.
+- **Admin dashboard** (`/admin`) — password-gated staff view. See
+  [Admin dashboard](#admin-dashboard) below.
 
 No online payment is wired up — by design, this is a *request-a-quote*
 flow, not a pay-now booking flow, since pricing for tours/travel usually
@@ -113,6 +128,99 @@ misleading link); the `/izuru-preview/:siteId` route and the 360°
 walkthrough are both clearly labelled mocks until an actual technical or
 business integration exists.
 
+## Admin dashboard
+
+`/admin` is a password-gated staff view, kept deliberately outside the
+public site's header/footer/nav. It is **not** linked from anywhere on
+the public site — staff need to know the URL.
+
+**Login.** One shared password, set via the `ADMIN_PASSWORD` environment
+variable. On success the server hands back an opaque session token (valid
+12 hours), which the browser holds in `sessionStorage` and sends as
+`Authorization: Bearer <token>` on every admin request. There's no
+per-user login, no password reset flow, and no rate-limiting on login
+attempts — appropriate for a small team sharing one door code, not for
+anything handling sensitive data at scale. See "Before this handles more"
+below for what to add if that changes.
+
+**Dashboard.** A filterable table of every request (status, tier),
+newest first. Clicking a row opens a detail panel with the full trip,
+contact, and (for VIP) arrival/stay information.
+
+**Changing status.** Five states — pending, quoted, confirmed, declined,
+cancelled — set with one click, no confirmation dialog, updates instantly.
+
+**Sending a quote.** Enter a price in KES (message is optional — leave it
+blank and the server writes a sensible default referencing the route,
+date, passenger count, and price). Saving stores the quote on the request
+and marks it `quoted`. **Nothing is sent automatically** — there's no
+email or SMS provider wired up, so the panel instead hands back:
+- a `wa.me` link pre-filled with the message, opening WhatsApp with that
+  customer's number already in place;
+- a `mailto:` link with the same message, if the customer left an email;
+- a copy-to-clipboard button, for anything else (SMS, a different app).
+
+This is an honest design choice, not a shortcut to fix later: claiming a
+quote was "sent" without a real delivery channel behind it would be
+misleading. If you later add a transactional email/SMS provider (Twilio,
+SendGrid, Africa's Talking), the natural place to wire it in is right
+after the `UPDATE` in `POST /api/admin/quotes/:id/quote` in `server.js`.
+
+**Before this handles more** than a small team's day-to-day quoting:
+move sessions from in-memory (lost on every restart, and won't work if
+you ever run more than one server instance) to a store like Redis or the
+database itself; move the session token from `sessionStorage` to an
+httpOnly cookie; add per-staff logins instead of one shared password; and
+add login rate-limiting.
+
+## Deployment (Render)
+
+The backend serves the built frontend directly (see the static-file
+block at the bottom of `server.js`), so this deploys as **one** Render
+web service — no separate static site, no CORS configuration to manage.
+
+### Option A — Blueprint (recommended)
+
+1. Push this project to a GitHub repo.
+2. In the Render dashboard: **New → Blueprint**, point it at the repo.
+   Render reads `render.yaml` and configures the service automatically.
+3. When prompted, set `ADMIN_PASSWORD` to something real (`sync: false`
+   in the blueprint means Render will ask rather than guess).
+4. Deploy. Render runs the `buildCommand` (builds the frontend, installs
+   the backend), then the `startCommand` (starts the Express server,
+   which now serves both the API and the built frontend).
+
+### Option B — Manual web service
+
+1. **New → Web Service**, connect the repo.
+2. **Build command:**
+   `cd frontend && npm install && npm run build && cd ../backend && npm install`
+3. **Start command:** `cd backend && node server.js`
+4. **Environment:** add `ADMIN_PASSWORD` and `NODE_ENV=production`.
+5. **Health check path:** `/api/health`.
+
+### Data persistence
+
+Render's **free** plan doesn't support persistent disks — the SQLite
+file lives on ephemeral storage and resets on every redeploy and on the
+periodic restarts free services get. That's fine for testing the
+deployment itself, but **upgrade to at least the Starter plan before
+relying on this for real customer requests**, then:
+
+1. In the Render dashboard, add a disk to the service — mount path
+   `/data`, 1GB is plenty for a long time.
+2. Add an environment variable `DATA_DIR=/data`.
+3. Redeploy. `db.js` already reads `DATA_DIR` when it's set (see the
+   commented-out block in `render.yaml` for the equivalent blueprint
+   config).
+
+### Cold starts
+
+Free-plan Render services spin down after inactivity and take a beat to
+wake back up on the next request — the first visitor after a quiet
+period will see a few seconds' delay. Upgrading to a paid plan removes
+this; worth doing before pointing real marketing traffic at the site.
+
 ## Data
 
 `sites.js` (frontend) holds the 16-site catalogue — id, name, category,
@@ -123,36 +231,40 @@ do.
 
 ## API reference
 
-| Method | Path                  | Purpose                                  |
-|--------|-----------------------|-------------------------------------------|
-| GET    | `/api/vehicles`       | List fleet (optional `?category=`)       |
-| GET    | `/api/vehicles/:id`   | Single vehicle                           |
-| GET    | `/api/occasions`      | List of service occasions                |
-| POST   | `/api/quotes`         | Submit a quote request (`tier: "standard" \| "vip"`, optional `itinerary`) |
-| GET    | `/api/quotes/:ref`    | Look up a request by reference           |
-| GET    | `/api/admin/quotes`   | All requests, newest first (no auth yet) |
+| Method | Path                          | Auth  | Purpose                                  |
+|--------|-------------------------------|-------|-------------------------------------------|
+| GET    | `/api/health`                 | —     | Health check (used by Render)            |
+| GET    | `/api/vehicles`               | —     | List fleet (optional `?category=`)       |
+| GET    | `/api/vehicles/:id`           | —     | Single vehicle                           |
+| GET    | `/api/occasions`              | —     | List of service occasions                |
+| POST   | `/api/quotes`                 | —     | Submit a quote request (`tier: "standard" \| "vip"`, optional `itinerary`) |
+| GET    | `/api/quotes/:ref`            | —     | Look up a request by reference           |
+| POST   | `/api/admin/login`            | —     | `{ password }` → `{ token, expiresAt }`  |
+| POST   | `/api/admin/logout`           | ✓     | Invalidate the current session token     |
+| GET    | `/api/admin/quotes`           | ✓     | List requests (optional `?status=` `?tier=`) |
+| GET    | `/api/admin/quotes/:id`       | ✓     | Single request, full detail              |
+| PATCH  | `/api/admin/quotes/:id`       | ✓     | `{ status }` → update status only        |
+| POST   | `/api/admin/quotes/:id/quote` | ✓     | `{ price, message? }` → mark quoted, returns `whatsappUrl` / `mailtoUrl` |
+
+Admin routes (✓) require `Authorization: Bearer <token>` from
+`/api/admin/login`.
 
 `quote_requests` rows also carry `itinerary` (comma-separated site names,
-populated when the request came from the planner), plus `flight_number`,
-`arrival_datetime`, `accommodation`, `nights`, and `wants_game_drives` —
-populated only when `tier` is `"vip"`.
+populated when the request came from the planner), `flight_number`,
+`arrival_datetime`, `accommodation`, `nights`, and `wants_game_drives`
+(populated only when `tier` is `"vip"`), and `quoted_price` /
+`quoted_message` / `quoted_at` (populated once a quote's been sent).
 
 ## Suggested next steps
 
-1. **Admin view** — a simple password-protected page over
-   `/api/admin/quotes` so staff can see and action incoming requests
-   (VIP itineraries especially benefit from a dedicated view, since they
-   carry flight/arrival data standard requests don't).
-2. **Notifications** — email or WhatsApp notification to staff when a
+1. **Notifications** — email or WhatsApp notification to staff when a
    quote request comes in, with VIP requests flagged urgently since
    they're time-sensitive against a flight.
-3. **Real I-ZURU integration** — once I-ZURU has a real capture pipeline
+2. **Real I-ZURU integration** — once I-ZURU has a real capture pipeline
    and player, swap the illustrated 360° mock and the `/izuru-preview`
    placeholder for the real embed/API, and link itinerary and VIP
    submissions to the specific I-ZURU listing the guest previewed.
-4. **Real branding assets** — swap in an actual logo; the current header
+3. **Real branding assets** — swap in an actual logo; the current header
    uses a text wordmark.
-5. **Deployment** — the frontend builds to static files (`npm run build`
-   in `frontend/`) deployable to any static host; the backend needs a
-   small always-on Node host (Render, Railway, a VPS) since it uses a
-   file-based SQLite database.
+4. **Harden the admin dashboard** before it handles more than a small
+   team's daily quoting — see "Before this handles more" above.

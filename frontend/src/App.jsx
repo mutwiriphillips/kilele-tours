@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
@@ -10,9 +10,23 @@ import IzuruPreview from "./pages/IzuruPreview";
 import RequestQuote from "./pages/RequestQuote";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
+import Admin from "./pages/Admin";
 import { ItineraryProvider } from "./context/ItineraryContext";
 
 export default function App() {
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith("/admin");
+
+  if (isAdmin) {
+    return (
+      <div className="min-h-screen">
+        <Routes>
+          <Route path="/admin" element={<Admin />} />
+        </Routes>
+      </div>
+    );
+  }
+
   return (
     <ItineraryProvider>
       <div className="min-h-screen flex flex-col">
