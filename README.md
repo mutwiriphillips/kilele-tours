@@ -208,6 +208,22 @@ needed at build time, not at runtime. Both build commands above already
 include `--include=dev` to force-install them regardless of `NODE_ENV`;
 if you've customized the build command, make sure that flag survives.
 
+### Troubleshooting: `better-sqlite3` build fails / 404 downloading Node headers
+
+`better-sqlite3` is a native module — it needs either a prebuilt binary
+for your exact Node version, or working compiler headers to build from
+source. If Render picks an unpinned or very new/alpha Node version (this
+has happened when no version is pinned at all — Render defaulted to an
+alpha build with no published headers, and the install failed with a 404
+downloading `node-vX.Y.Z-headers.tar.gz`), the install fails outright.
+
+Fixed here by pinning Node explicitly two ways: the `.node-version` file
+at the repo root, and a `NODE_VERSION` env var in `render.yaml`. Both
+point at the same stable LTS release. If you ever change the Node
+version, keep `.node-version`, the `NODE_VERSION` env var, and
+`engines.node` in `backend/package.json` in sync — a mismatch between
+them is exactly what causes Render to fall back to guessing.
+
 ### Data persistence
 
 Render's **free** plan doesn't support persistent disks — the SQLite
