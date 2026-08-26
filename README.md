@@ -194,10 +194,19 @@ web service — no separate static site, no CORS configuration to manage.
 
 1. **New → Web Service**, connect the repo.
 2. **Build command:**
-   `cd frontend && npm install && npm run build && cd ../backend && npm install`
+   `cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install`
 3. **Start command:** `cd backend && node server.js`
 4. **Environment:** add `ADMIN_PASSWORD` and `NODE_ENV=production`.
 5. **Health check path:** `/api/health`.
+
+### Troubleshooting: `vite: not found`
+
+If the build fails with `sh: 1: vite: not found`, it's because `NODE_ENV=production`
+was set *before* `npm install` ran — npm then skips `devDependencies`,
+and `vite` (along with Tailwind/PostCSS) lives there since they're only
+needed at build time, not at runtime. Both build commands above already
+include `--include=dev` to force-install them regardless of `NODE_ENV`;
+if you've customized the build command, make sure that flag survives.
 
 ### Data persistence
 
