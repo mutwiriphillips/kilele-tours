@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { api } from "../api";
-import { occasions } from "../content";
+import { occasions, rentalTypes, DEPOSIT_PERCENT } from "../content";
 import { siteById } from "../sites";
+import PhoneInput from "../components/PhoneInput";
 
 const emptyForm = {
   tier: "standard",
+  traveler_type: "local",
+  rental_type: "chauffeur",
+  driver_license_number: "",
+  driver_license_country: "",
   occasion: "",
   vehicle_id: "",
   travel_date: "",
@@ -14,14 +19,17 @@ const emptyForm = {
   passengers: "",
   full_name: "",
   phone: "",
+  phone_country: "KE",
   email: "",
   notes: "",
   itinerary: "",
+  needs_airport_pickup: false,
   flight_number: "",
   arrival_datetime: "",
   accommodation: "",
   nights: "",
-  wants_game_drives: false
+  wants_game_drives: false,
+  agreed_to_policy: false
 };
 
 export default function RequestQuote() {
@@ -32,12 +40,11 @@ export default function RequestQuote() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [submitError, setSubmitError] = useState("");
+  const [itinerarySites, setItinerarySites] = useState([]);
 
   useEffect(() => {
     api.getVehicles().then(setVehicles).catch(() => {});
   }, []);
-
-  const [itinerarySites, setItinerarySites] = useState([]);
 
   useEffect(() => {
     const occasion = params.get("occasion") || "";
@@ -69,6 +76,9 @@ export default function RequestQuote() {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
+  const selectedVehicle = vehicles.find((v) => String(v.id) === String(form.vehicle_id));
+  const selfDriveBlocked = form.rental_type === "self_drive" && selectedVehicle && !selectedVehicle.self_drive_eligible;
+
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitting(true);
@@ -93,7 +103,7 @@ export default function RequestQuote() {
       <div className="max-w-xl mx-auto px-6 py-28 text-center">
         <div className="waypoint w-3 h-3 mx-auto mb-8" />
         <div className="text-xs uppercase tracking-[0.25em] font-mono text-brass-dark mb-4">
-          {result.tier === "vip" ? "VIP itinerary received" : "Request received"}
+          {result.tier === "vip" ? "VIP request received" : "Request received"}
         </div>
         <h1 className="font-display text-3xl text-pine mb-4">
           Reference {result.reference}
@@ -108,16 +118,24 @@ export default function RequestQuote() {
             Route requested: <strong>{result.itinerary}</strong>
           </p>
         )}
-        {result.tier === "vip" && (
+        {result.needs_airport_pickup === 1 && (
           <p className="text-ink/70 leading-relaxed mb-2">
-            We'll build your ground itinerary around flight{" "}
+            We'll plan your airport pickup around flight{" "}
             <strong>{result.flight_number}</strong>, arriving{" "}
             <strong>{result.arrival_datetime}</strong>, staying at{" "}
             <strong>{result.accommodation}</strong>.
           </p>
         )}
+        {result.rental_type === "self_drive" && (
+          <p className="text-ink/70 leading-relaxed mb-2">
+            This is a self-drive booking — bring the license you gave us
+            plus a passport or ID when you collect the vehicle.
+          </p>
+        )}
         <p className="text-sm text-ink/50 mt-8">
-          Keep your reference number — quote it if you call us to follow up.
+          Once quoted, a {DEPOSIT_PERCENT}% deposit confirms your booking —
+          see our <Link to="/policy" className="underline hover:text-brass-dark">booking policy</Link> for details.
+          Keep your reference number handy when you follow up.
         </p>
       </div>
     );
@@ -130,12 +148,11 @@ export default function RequestQuote() {
           Request a quote
         </div>
         <h1 className="font-display text-4xl text-pine mb-4">
-          {form.tier === "vip" ? "Tell us your flight. We'll handle the rest." : "Tell us about the trip."}
+          Tell us about the trip.
         </h1>
         <p className="text-ink/70 leading-relaxed">
-          {form.tier === "vip"
-            ? "Give us your arrival and stay details and we'll build a full ground itinerary — pickup to departure — before you land."
-            : "Fill in what you know — we'll follow up with a fixed price and confirm the vehicle. No payment is required at this step."}
+          Fill in what you know — we'll follow up with a fixed price and
+          confirm the vehicle. No payment is required at this step.
         </p>
       </div>
 
@@ -157,58 +174,95 @@ export default function RequestQuote() {
         </div>
       )}
 
-      <div className="flex gap-2 mb-10 bg-sand border border-brass/25 rounded-full p-1 max-w-sm">
-        {[
-          { id: "standard", label: "Standard" },
-          { id: "vip", label: "VIP International" }
-        ].map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => update("tier", t.id)}
-            className={`flex-1 text-sm font-medium px-4 py-2 rounded-full transition-colors ${
-              form.tier === t.id
-                ? "bg-pine text-sand-light"
-                : "text-ink/60 hover:text-pine"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
       <form onSubmit={handleSubmit} className="space-y-8" noValidate>
+        {/* Three independent choices: service tier, traveler origin, rental type */}
         <fieldset className="space-y-5">
-          <legend className="text-sm font-semibold text-pine mb-2">The occasion</legend>
+          <legend className="text-sm font-semibold text-pine mb-2">How would you like to book?</legend>
 
-          <Field label="What's this trip for" error={errors.occasion}>
-            <select
-              className={inputClass(errors.occasion)}
-              value={form.occasion}
-              onChange={(e) => update("occasion", e.target.value)}
-            >
-              <option value="">Select an occasion</option>
-              {occasions.map((o) => (
-                <option key={o.id} value={o.id}>{o.label}</option>
-              ))}
-            </select>
-          </Field>
+          <div>
+            <span className="text-sm font-medium text-ink/80 mb-1.5 block">Service tier</span>
+            <p className="text-xs text-ink/50 mb-2">
+              VIP is a premium level of service — available whether you're
+              local or visiting. See the <Link to="/vip" className="underline hover:text-brass-dark">VIP page</Link>.
+            </p>
+            <TogglePair
+              options={[{ id: "standard", label: "Standard" }, { id: "vip", label: "VIP" }]}
+              value={form.tier}
+              onChange={(v) => update("tier", v)}
+            />
+          </div>
 
-          <Field label="Preferred vehicle (optional)">
-            <select
-              className={inputClass()}
-              value={form.vehicle_id}
-              onChange={(e) => update("vehicle_id", e.target.value)}
-            >
-              <option value="">No preference — recommend one</option>
-              {vehicles.map((v) => (
-                <option key={v.id} value={v.id}>{v.name} — seats {v.capacity}</option>
-              ))}
-            </select>
-          </Field>
+          <div>
+            <span className="text-sm font-medium text-ink/80 mb-1.5 block">You're traveling from</span>
+            <TogglePair
+              options={[{ id: "local", label: "Within Kenya" }, { id: "international", label: "Abroad" }]}
+              value={form.traveler_type}
+              onChange={(v) => update("traveler_type", v)}
+            />
+          </div>
+
+          <div>
+            <span className="text-sm font-medium text-ink/80 mb-1.5 block">Driver</span>
+            <TogglePair
+              options={rentalTypes.map((r) => ({ id: r.id, label: r.label }))}
+              value={form.rental_type}
+              onChange={(v) => update("rental_type", v)}
+            />
+            <p className="text-xs text-ink/50 mt-2">
+              {rentalTypes.find((r) => r.id === form.rental_type)?.line}
+            </p>
+          </div>
+
+          <label className="flex items-center gap-2.5 cursor-pointer pt-1">
+            <input
+              type="checkbox"
+              checked={form.needs_airport_pickup}
+              onChange={(e) => update("needs_airport_pickup", e.target.checked)}
+              className="w-4 h-4 accent-brass"
+            />
+            <span className="text-sm text-ink/80">I'll be arriving by flight and need airport pickup</span>
+          </label>
         </fieldset>
 
-        {form.tier === "vip" && (
+        {form.rental_type === "self_drive" && (
+          <fieldset className="space-y-5 bg-sand/60 border border-brass/25 rounded-sm p-5 -mx-1">
+            <legend className="text-sm font-semibold text-pine mb-2 px-1">Self-drive details</legend>
+            <p className="text-xs text-ink/50 -mt-3 mb-1">
+              Required for self-drive — see our{" "}
+              <Link to="/policy" className="underline hover:text-brass-dark">self-drive policy</Link> for
+              license, age, and deposit terms.
+            </p>
+
+            {selfDriveBlocked && (
+              <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-sm px-4 py-3">
+                {selectedVehicle.name} needs a company driver — self-drive isn't available on this
+                vehicle. Choose a different vehicle or switch to chauffeur-driven.
+              </p>
+            )}
+
+            <div className="grid sm:grid-cols-2 gap-5">
+              <Field label="Driver's license number" error={errors.driver_license_number}>
+                <input
+                  type="text"
+                  className={inputClass(errors.driver_license_number)}
+                  value={form.driver_license_number}
+                  onChange={(e) => update("driver_license_number", e.target.value)}
+                />
+              </Field>
+              <Field label="License issued by (country)" error={errors.driver_license_country}>
+                <input
+                  type="text"
+                  placeholder="e.g. Kenya"
+                  className={inputClass(errors.driver_license_country)}
+                  value={form.driver_license_country}
+                  onChange={(e) => update("driver_license_country", e.target.value)}
+                />
+              </Field>
+            </div>
+          </fieldset>
+        )}
+
+        {form.needs_airport_pickup && (
           <fieldset className="space-y-5 bg-sand/60 border border-brass/25 rounded-sm p-5 -mx-1">
             <legend className="text-sm font-semibold text-pine mb-2 px-1">
               Arrival &amp; stay details
@@ -272,6 +326,39 @@ export default function RequestQuote() {
         )}
 
         <fieldset className="space-y-5">
+          <legend className="text-sm font-semibold text-pine mb-2">The occasion</legend>
+
+          <Field label="What's this trip for" error={errors.occasion}>
+            <select
+              className={inputClass(errors.occasion)}
+              value={form.occasion}
+              onChange={(e) => update("occasion", e.target.value)}
+            >
+              <option value="">Select an occasion</option>
+              {occasions.map((o) => (
+                <option key={o.id} value={o.id}>{o.label}</option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Preferred vehicle (optional)" error={errors.rental_type}>
+            <select
+              className={inputClass(errors.rental_type)}
+              value={form.vehicle_id}
+              onChange={(e) => update("vehicle_id", e.target.value)}
+            >
+              <option value="">No preference — recommend one</option>
+              {vehicles.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name} — seats {v.capacity}
+                  {form.rental_type === "self_drive" && !v.self_drive_eligible ? " (chauffeur only)" : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </fieldset>
+
+        <fieldset className="space-y-5">
           <legend className="text-sm font-semibold text-pine mb-2">Route and date</legend>
 
           <div className="grid sm:grid-cols-2 gap-5">
@@ -329,12 +416,14 @@ export default function RequestQuote() {
 
           <div className="grid sm:grid-cols-2 gap-5">
             <Field label="Phone number" error={errors.phone}>
-              <input
-                type="tel"
-                placeholder="07XX XXX XXX"
-                className={inputClass(errors.phone)}
+              <PhoneInput
                 value={form.phone}
-                onChange={(e) => update("phone", e.target.value)}
+                error={errors.phone}
+                defaultIso={form.phone_country}
+                onChange={(phone, iso) => {
+                  update("phone", phone);
+                  update("phone_country", iso);
+                }}
               />
             </Field>
             <Field label="Email (optional)">
@@ -358,6 +447,27 @@ export default function RequestQuote() {
           </Field>
         </fieldset>
 
+        <fieldset className="border-t border-brass/20 pt-6">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.agreed_to_policy}
+              onChange={(e) => update("agreed_to_policy", e.target.checked)}
+              className="w-4 h-4 mt-0.5 accent-brass flex-shrink-0"
+            />
+            <span className="text-sm text-ink/75 leading-relaxed">
+              I've read and agree to the{" "}
+              <Link to="/policy" className="underline text-pine hover:text-brass-dark" target="_blank">
+                booking &amp; payment policy
+              </Link>
+              , including that a {DEPOSIT_PERCENT}% deposit is required to confirm this booking once quoted.
+            </span>
+          </label>
+          {errors.agreed_to_policy && (
+            <span className="text-xs text-red-700 mt-1.5 block ml-7">{errors.agreed_to_policy}</span>
+          )}
+        </fieldset>
+
         {submitError && (
           <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-sm px-4 py-3">
             {submitError}
@@ -366,12 +476,31 @@ export default function RequestQuote() {
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || selfDriveBlocked}
           className="w-full bg-pine text-sand-light font-medium px-8 py-4 rounded-sm hover:bg-pine-dark transition-colors disabled:opacity-60"
         >
           {submitting ? "Sending…" : "Send quote request"}
         </button>
       </form>
+    </div>
+  );
+}
+
+function TogglePair({ options, value, onChange }) {
+  return (
+    <div className="flex gap-2 bg-sand border border-brass/25 rounded-full p-1 max-w-md">
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          onClick={() => onChange(o.id)}
+          className={`flex-1 text-sm font-medium px-4 py-2 rounded-full transition-colors ${
+            value === o.id ? "bg-pine text-sand-light" : "text-ink/60 hover:text-pine"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }

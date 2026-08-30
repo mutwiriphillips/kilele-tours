@@ -49,6 +49,23 @@ export const occasions = [
   }
 ];
 
+export const DEPOSIT_PERCENT = 20;
+
+export const rentalTypes = [
+  {
+    id: "chauffeur",
+    label: "Chauffeur-driven",
+    line: "Our licensed driver, in uniform, for the whole trip.",
+    icon: "steering"
+  },
+  {
+    id: "self_drive",
+    label: "Self-drive — bring your own driver",
+    line: "You provide the driver — yourself or someone you bring. We provide the vehicle.",
+    icon: "key"
+  }
+];
+
 export function occasionById(id) {
   return occasions.find((o) => o.id === id);
 }

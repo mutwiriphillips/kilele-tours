@@ -77,12 +77,13 @@ served from the one process, same as on Render.
   people to Kenya, a "Signature Kenya Experiences" grid (Big Five, Mount
   Kenya, the Great Migration, the Coast, Rift Valley paragliding) linking
   into the itinerary planner and I-ZURU previews, the "one road, every
-  occasion" service section, and a VIP International teaser.
+  occasion" service section, a VIP teaser, and — once there's approved
+  feedback — a testimonials strip pulled live from `/api/feedback`.
 - **Services** — detail on weddings, funerals, safaris, corporate/events,
   airport transfers, and general travel.
 - **Fleet** — live vehicle list pulled from the API, with a mock 360°
-  walkthrough per vehicle (drag-to-pan interior preview, three scenes:
-  front cabin, middle row, boot/luggage) and daily rate guidance.
+  walkthrough per vehicle, daily rate guidance, and a **self-drive
+  eligibility badge** per vehicle (see "Self-drive" below).
 - **Itinerary Planner** (`/itinerary`) — a curated catalogue of 16 Kenya
   tour sites (national parks & reserves, rift valley, coast, culture &
   heritage), filterable by category. Each site card has:
@@ -94,26 +95,59 @@ served from the one process, same as on Render.
     integration.
   - **Request a quote for this itinerary** — carries the full shortlist
     into the quote form via `?sites=id1,id2,...`.
-- **VIP International** (`/vip`) — the bundled tier for international
-  guests: airport pickup, hotel/lodge transfers, and game drives as one
-  itinerary. The page explicitly frames the handoff between **I-ZURU**
-  (property preview before commitment) and **Kilele** (ground execution from
-  landing to departure) as two systems serving one trip.
-- **Request a quote** — the booking form, with a **Standard / VIP
-  International** tier toggle and, when arriving from the itinerary
-  planner, a banner showing the selected sites (editable, links back to
-  `/itinerary`). The chosen route pre-fills the drop-off field and is
-  stored on the quote as a plain-text `itinerary` field. VIP unlocks an
-  arrival & stay fieldset (flight number, arrival date & time,
-  accommodation, nights, game-drive opt-in), validated server-side. VIP
-  references are prefixed `KLT-VIP-` instead of `KLT-`.
+- **VIP** (`/vip`) — a premium *service tier*, independent of where the
+  guest is travelling from. Local clients get the same senior drivers,
+  premium vehicles, and priority scheduling as anyone flying in — VIP and
+  "arriving internationally" are two separate axes now, not one bundled
+  tier. The page still frames the **I-ZURU** (property preview) →
+  **Kilele** (ground execution) handoff for guests who do need airport
+  pickup, but that's opt-in, not assumed.
+- **Request a quote** — the booking form now separates three independent
+  choices instead of one bundled toggle:
+  - **Service tier** — Standard / VIP.
+  - **Traveler origin** — Within Kenya / Abroad (affects nothing on its
+    own beyond context; it doesn't gate any fields).
+  - **Driver** — Chauffeur-driven / **Self-drive, bring your own driver**.
+    Self-drive requires a license number and issuing country, and is
+    blocked client- and server-side on vehicles that require a company
+    driver (see "Self-drive" below).
+  - A separate **"I'll be arriving by flight and need airport pickup"**
+    checkbox (independent of tier and traveler origin) reveals the
+    flight/arrival/accommodation fieldset — so a local VIP client isn't
+    shown irrelevant flight fields, and an international standard client
+    who's driving up from the border isn't forced through them either.
+  - **Phone number** uses a country-code-aware input (`PhoneInput.jsx`,
+    backed by `countryCodes.js`, ~60 countries) instead of assuming +254 —
+    tourists are calling in from everywhere. Submitted numbers are
+    validated server-side as `+<countrycode><number>`.
+  - A required **policy consent checkbox**, linking to `/policy`, stating
+    the 20% deposit requirement explicitly before the person can submit.
+  - The itinerary-planner integration (site shortlist banner, pre-filled
+    route) from earlier sessions still works exactly as before.
+- **Policy** (`/policy`) — a drafted booking & payment policy: scope,
+  quote requests vs. bookings, the 20% deposit rule, chauffeur vs.
+  self-drive terms (license/age/deposit requirements, which vehicles
+  qualify and why), cancellation tiers, conduct & safety, liability,
+  privacy, and disputes. Linked from the booking form, the self-drive
+  fieldset, the Fleet page, and the footer.
+- **Feedback** (`/feedback`) — a public review form (name, star rating,
+  occasion, message, optional booking reference) plus a live grid of
+  approved testimonials. Submissions are held for moderation — see
+  "Admin dashboard" below — before they're publicly visible anywhere.
+- **Receipt** (`/receipt/:receiptNumber?ref=<reference>`) — a public,
+  print-friendly receipt page (see "Payments & receipts" below). Renders
+  standalone, outside the normal site header/footer, since it's meant to
+  be printed, saved as a PDF, or opened from a WhatsApp/email link rather
+  than browsed to.
 - **About / Contact** — company positioning and direct contact info.
 - **Admin dashboard** (`/admin`) — password-gated staff view. See
   [Admin dashboard](#admin-dashboard) below.
 
-No online payment is wired up — by design, this is a *request-a-quote*
-flow, not a pay-now booking flow, since pricing for tours/travel usually
-depends on a human quoting distance and occasion specifics.
+No online payment gateway is wired up — by design, this is a
+*request-a-quote* flow, not a pay-now booking flow, since pricing for
+tours/travel usually depends on a human quoting distance and occasion
+specifics. Payments made by other means (M-Pesa, bank transfer, cash) are
+recorded by staff after the fact — see "Payments & receipts."
 
 ### On I-ZURU
 
@@ -127,6 +161,58 @@ to a real I-ZURU URL (a URL that doesn't exist yet would be a broken or
 misleading link); the `/izuru-preview/:siteId` route and the 360°
 walkthrough are both clearly labelled mocks until an actual technical or
 business integration exists.
+
+### Self-drive
+
+`vehicles.self_drive_eligible` marks which vehicles can be rented without
+a Kilele driver. Seeded as: Saloon, 4x4 SUV, and Luxury Van are eligible;
+the Van, Bus, and Convoy vehicle are not. The reasoning (drafted into the
+policy, not just hidden in code): vehicles carrying more than 8
+passengers are legally required to operate under a licensed PSV driver in
+Kenya, and the funeral convoy vehicle is chauffeur-only so drivers can
+hold procession pacing. This is enforced in two places, not just one —
+`RequestQuote.jsx` disables submission and shows a warning client-side,
+and `server.js`'s `validateQuote` rejects it server-side regardless of
+what the client sent, since client-side checks alone are never
+sufficient.
+
+### Payments & receipts
+
+There's no payment gateway integration (no M-Pesa Daraja API or Stripe
+credentials configured) — this deliberately doesn't pretend otherwise.
+What it does instead: staff record payments customers have already made
+by other means (M-Pesa till, bank transfer, cash), and the system tracks
+the running total against the quoted price.
+
+- `POST /api/admin/quotes/:id/payments` — records one payment (amount,
+  method, optional transaction reference, deposit/balance/full/other),
+  generates a unique receipt number, and recalculates the request's
+  `amount_paid` and `payment_status` (`unpaid` → `partial` →
+  `deposit_paid` → `paid_in_full`).
+- **The 20% deposit rule is enforced in code, not just written in the
+  policy.** If a payment brings the total paid up to the deposit
+  threshold (or beyond) while the request is still just `quoted`, the
+  server automatically flips `status` to `confirmed` in the same
+  transaction. Staff don't have to remember to do this manually, and it
+  can't drift out of sync with the policy document.
+- Every recorded payment gets a receipt, viewable at
+  `/receipt/:receiptNumber?ref=<booking reference>` — a print-friendly
+  page (there's a "Print / save as PDF" button using the browser's native
+  print dialog, deliberately not a server-side PDF library, since that
+  would've meant adding another native dependency right after fixing two
+  native-module deployment failures in this same project). The reference
+  query param is required and checked against the payment's actual
+  booking — not full authentication, but enough that receipt numbers
+  alone (which are short and could plausibly be guessed or enumerated)
+  aren't sufficient to view someone else's payment history.
+
+### Feedback moderation
+
+Submissions via `POST /api/feedback` are never public until approved.
+`GET /api/feedback` (used by the Home and Feedback pages) only ever
+returns rows where `approved = 1`. The admin dashboard's **Feedback**
+tab lists everything regardless of status, with Approve/Unpublish/Delete
+actions.
 
 ## Admin dashboard
 
@@ -259,37 +345,62 @@ do.
 | Method | Path                          | Auth  | Purpose                                  |
 |--------|-------------------------------|-------|-------------------------------------------|
 | GET    | `/api/health`                 | —     | Health check (used by Render)            |
-| GET    | `/api/vehicles`               | —     | List fleet (optional `?category=`)       |
+| GET    | `/api/vehicles`               | —     | List fleet (optional `?category=`); includes `self_drive_eligible` |
 | GET    | `/api/vehicles/:id`           | —     | Single vehicle                           |
 | GET    | `/api/occasions`              | —     | List of service occasions                |
-| POST   | `/api/quotes`                 | —     | Submit a quote request (`tier: "standard" \| "vip"`, optional `itinerary`) |
+| POST   | `/api/quotes`                 | —     | Submit a quote request (see fields below) |
 | GET    | `/api/quotes/:ref`            | —     | Look up a request by reference           |
+| POST   | `/api/feedback`               | —     | Submit feedback (`full_name`, `rating` 1–5, `message`, optional `occasion`/`reference`) — held for moderation |
+| GET    | `/api/feedback`                | —     | List *approved* feedback only, newest first |
+| GET    | `/api/receipts/:receiptNumber` | —     | Look up a receipt; requires `?ref=<booking reference>` |
 | POST   | `/api/admin/login`            | —     | `{ password }` → `{ token, expiresAt }`  |
 | POST   | `/api/admin/logout`           | ✓     | Invalidate the current session token     |
 | GET    | `/api/admin/quotes`           | ✓     | List requests (optional `?status=` `?tier=`) |
 | GET    | `/api/admin/quotes/:id`       | ✓     | Single request, full detail              |
 | PATCH  | `/api/admin/quotes/:id`       | ✓     | `{ status }` → update status only        |
-| POST   | `/api/admin/quotes/:id/quote` | ✓     | `{ price, message? }` → mark quoted, returns `whatsappUrl` / `mailtoUrl` |
+| POST   | `/api/admin/quotes/:id/quote` | ✓     | `{ price, message? }` → mark quoted, computes `deposit_amount`, returns `whatsappUrl` / `mailtoUrl` |
+| POST   | `/api/admin/quotes/:id/payments` | ✓  | `{ amount, method, transaction_ref?, payment_type?, notes? }` → records a payment, generates a receipt, may auto-confirm the booking |
+| GET    | `/api/admin/quotes/:id/payments` | ✓  | List payments recorded against a request |
+| GET    | `/api/admin/feedback`         | ✓     | List all feedback (optional `?approved=0\|1`) |
+| PATCH  | `/api/admin/feedback/:id`     | ✓     | `{ approved }` → publish/unpublish       |
+| DELETE | `/api/admin/feedback/:id`     | ✓     | Delete a feedback entry                  |
 
 Admin routes (✓) require `Authorization: Bearer <token>` from
 `/api/admin/login`.
 
-`quote_requests` rows also carry `itinerary` (comma-separated site names,
-populated when the request came from the planner), `flight_number`,
-`arrival_datetime`, `accommodation`, `nights`, and `wants_game_drives`
-(populated only when `tier` is `"vip"`), and `quoted_price` /
-`quoted_message` / `quoted_at` (populated once a quote's been sent).
+**`POST /api/quotes` body fields:** `tier` (`standard`|`vip`),
+`traveler_type` (`local`|`international`), `rental_type`
+(`chauffeur`|`self_drive` — the latter requires `driver_license_number` +
+`driver_license_country`, and is rejected if the chosen vehicle isn't
+self-drive eligible), `occasion`, `vehicle_id`, `travel_date`, `pickup`,
+`dropoff`, `passengers`, `full_name`, `phone` (must include a country
+code, e.g. `+254712345678`), `phone_country`, `email`, `notes`,
+`itinerary`, `needs_airport_pickup` (independent of tier/traveler_type —
+true reveals/requires `flight_number`, `arrival_datetime`,
+`accommodation`), `nights`, `wants_game_drives`, and `agreed_to_policy`
+(must be truthy).
+
+`quote_requests` rows additionally carry: `deposit_amount` (20% of
+`quoted_price`, computed when a quote is sent), `amount_paid`,
+`payment_status` (`unpaid`|`partial`|`deposit_paid`|`paid_in_full`).
 
 ## Suggested next steps
 
-1. **Notifications** — email or WhatsApp notification to staff when a
-   quote request comes in, with VIP requests flagged urgently since
-   they're time-sensitive against a flight.
-2. **Real I-ZURU integration** — once I-ZURU has a real capture pipeline
+1. **Real payment gateway** — M-Pesa's Daraja API (STK Push) is the
+   natural fit for the Kenyan market and would let customers pay their
+   deposit directly rather than staff recording it after the fact.
+   Wiring it in doesn't change the data model much — it would call the
+   same payment-recording logic that already exists, just triggered by a
+   webhook instead of an admin form.
+2. **Notifications** — email or WhatsApp notification to staff when a
+   quote request or a self-drive booking comes in, with VIP + airport
+   pickup requests flagged urgently since they're time-sensitive against
+   a flight.
+3. **Real I-ZURU integration** — once I-ZURU has a real capture pipeline
    and player, swap the illustrated 360° mock and the `/izuru-preview`
    placeholder for the real embed/API, and link itinerary and VIP
    submissions to the specific I-ZURU listing the guest previewed.
-3. **Real branding assets** — swap in an actual logo; the current header
+4. **Real branding assets** — swap in an actual logo; the current header
    uses a text wordmark.
-4. **Harden the admin dashboard** before it handles more than a small
+5. **Harden the admin dashboard** before it handles more than a small
    team's daily quoting — see "Before this handles more" above.

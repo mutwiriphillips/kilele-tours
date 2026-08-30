@@ -59,5 +59,17 @@ export const adminApi = {
   updateStatus: (id, status) =>
     request(`/admin/quotes/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
   sendQuote: (id, { price, message }) =>
-    request(`/admin/quotes/${id}/quote`, { method: "POST", body: JSON.stringify({ price, message }) })
+    request(`/admin/quotes/${id}/quote`, { method: "POST", body: JSON.stringify({ price, message }) }),
+  listPayments: (id) => request(`/admin/quotes/${id}/payments`),
+  recordPayment: (id, payload) =>
+    request(`/admin/quotes/${id}/payments`, { method: "POST", body: JSON.stringify(payload) }),
+  listFeedback: (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.approved !== undefined && filters.approved !== "") params.set("approved", filters.approved);
+    const qs = params.toString();
+    return request(`/admin/feedback${qs ? `?${qs}` : ""}`);
+  },
+  moderateFeedback: (id, approved) =>
+    request(`/admin/feedback/${id}`, { method: "PATCH", body: JSON.stringify({ approved }) }),
+  deleteFeedback: (id) => request(`/admin/feedback/${id}`, { method: "DELETE" })
 };

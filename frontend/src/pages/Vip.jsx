@@ -46,23 +46,26 @@ export default function Vip() {
       <section className="bg-pine text-sand-light">
         <div className="max-w-5xl mx-auto px-6 pt-20 pb-16 md:pt-28 md:pb-20">
           <div className="text-xs uppercase tracking-[0.25em] font-mono text-brass-light mb-6">
-            VIP International Tier
+            VIP Service
           </div>
           <h1 className="font-display text-4xl sm:text-5xl leading-[1.1] max-w-2xl mb-6">
-            Land already knowing where you're staying.
+            Priority service, door to door.
             <br />
-            <span className="italic text-brass-light">Leave without lifting a finger.</span>
+            <span className="italic text-brass-light">Local or visiting — handled the same way.</span>
           </h1>
           <p className="text-sand/85 text-lg max-w-xl leading-relaxed mb-10">
-            Built for international guests booking Kenya from abroad — airport
-            pickup, hotel transfers, and game drives, coordinated around a
-            property you've already previewed in full before you commit to it.
+            VIP is our top service tier — senior drivers, premium vehicles,
+            and priority scheduling for any occasion, whether you live down
+            the road or you're landing from another continent. Flying in?
+            Pair VIP with airport pickup when you book, and we'll coordinate
+            the ground logistics around a property you've already previewed
+            in full.
           </p>
           <Link
             to="/request-quote?tier=vip"
             className="bg-brass text-pine-dark font-medium px-7 py-3.5 rounded-sm hover:bg-brass-light transition-colors inline-block"
           >
-            Request a VIP itinerary
+            Request VIP service
           </Link>
         </div>
       </section>
@@ -122,6 +125,11 @@ export default function Vip() {
           <h2 className="font-display text-3xl md:text-4xl text-pine">
             From "considering Kenya" to wheels-up home.
           </h2>
+          <p className="text-sm text-ink/50 mt-3">
+            This full sequence is for guests arriving from abroad. Booking
+            VIP locally? Steps 3–4 (airport pickup, arrival transfer) simply
+            don't apply — everything else does.
+          </p>
         </div>
 
         <div className="route-thread">
@@ -161,9 +169,32 @@ export default function Vip() {
       {/* What's included */}
       <section className="bg-sand">
         <div className="max-w-5xl mx-auto px-6 py-16">
-          <h2 className="font-display text-2xl text-pine mb-8 text-center">
-            What's bundled into VIP
+          <h2 className="font-display text-2xl text-pine mb-2 text-center">
+            Every VIP booking includes
           </h2>
+          <p className="text-sm text-ink/50 text-center mb-8">
+            Local or international — this is the VIP tier itself.
+          </p>
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+            {[
+              { title: "Senior drivers", desc: "Our most experienced, highest-rated drivers" },
+              { title: "Premium vehicles", desc: "Priority pick from the luxury van and SUV fleet" },
+              { title: "Priority scheduling", desc: "First call on availability for your dates" },
+              { title: "Dedicated coordinator", desc: "One point of contact for the whole booking" }
+            ].map((f) => (
+              <div key={f.title} className="bg-white/60 border border-brass/20 rounded-sm p-5">
+                <div className="font-display text-lg text-pine mb-1.5">{f.title}</div>
+                <div className="text-sm text-ink/60">{f.desc}</div>
+              </div>
+            ))}
+          </div>
+
+          <h2 className="font-display text-2xl text-pine mb-2 text-center">
+            Add for international arrivals
+          </h2>
+          <p className="text-sm text-ink/50 text-center mb-8">
+            Tick "I'll be arriving by flight" at booking to add these.
+          </p>
           <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6">
             {[
               { title: "Flight-tracked pickup", desc: "Meet-and-greet at arrivals, delays covered" },
@@ -183,17 +214,18 @@ export default function Vip() {
       {/* CTA */}
       <section className="max-w-3xl mx-auto px-6 py-20 text-center">
         <h2 className="font-display text-3xl text-pine mb-4">
-          Tell us your flight. We'll handle the rest.
+          Ready for VIP treatment?
         </h2>
         <p className="text-ink/70 max-w-lg mx-auto mb-8">
-          Send your arrival details and accommodation and we'll come back
-          with a full itinerary and a fixed price — before you land.
+          Book VIP for any occasion. Flying in from abroad? Add your flight
+          details at booking and we'll build the full ground itinerary
+          around it — before you land.
         </p>
         <Link
           to="/request-quote?tier=vip"
           className="bg-pine text-sand-light font-medium px-8 py-3.5 rounded-sm hover:bg-pine-dark transition-colors inline-block"
         >
-          Request a VIP itinerary
+          Request VIP service
         </Link>
       </section>
     </div>

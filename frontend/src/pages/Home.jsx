@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { occasions, experiences } from "../content";
 import HeroScene from "../components/HeroScene";
@@ -38,6 +39,15 @@ const icons = {
 };
 
 export default function Home() {
+  const [testimonials, setTestimonials] = useState([]);
+
+  useEffect(() => {
+    fetch("/api/feedback")
+      .then((r) => r.json())
+      .then((data) => setTestimonials(data.slice(0, 3)))
+      .catch(() => {});
+  }, []);
+
   return (
     <div>
       {/* Hero */}
@@ -82,7 +92,8 @@ export default function Home() {
           <span>Vehicles inspected before every trip</span>
           <span className="hidden sm:inline">Uniformed, licensed drivers</span>
           <span>Fixed quotes, no surprise charges</span>
-          <span className="hidden sm:inline">Nationwide coverage</span>
+          <span className="hidden sm:inline">Self-drive available</span>
+          <span>20% deposit confirms your booking</span>
         </div>
       </section>
 
@@ -173,30 +184,30 @@ export default function Home() {
         </div>
       </section>
 
-      {/* VIP International teaser */}
+      {/* VIP teaser */}
       <section className="bg-pine text-sand-light">
         <div className="max-w-6xl mx-auto px-6 py-20 grid md:grid-cols-2 gap-10 items-center">
           <div>
             <div className="text-xs uppercase tracking-[0.25em] font-mono text-brass-light mb-3">
-              For international guests
+              VIP service
             </div>
             <h2 className="font-display text-3xl md:text-4xl mb-4">
-              Flying in? Land already sorted.
+              Premium service, for anyone booking with us.
             </h2>
             <p className="text-sand/80 leading-relaxed mb-6 max-w-md">
-              Our VIP tier bundles airport pickup, hotel and lodge transfers,
-              and game drives into one itinerary — built around a stay
-              you've already previewed in full before you booked it.
+              VIP means senior drivers, premium vehicles, and priority
+              scheduling — whether you're local or visiting. Flying in?
+              Add airport pickup and full ground logistics at booking.
             </p>
             <Link
               to="/vip"
               className="bg-brass text-pine-dark font-medium px-6 py-3 rounded-sm hover:bg-brass-light transition-colors inline-block"
             >
-              See the VIP tier
+              See VIP service
             </Link>
           </div>
           <div className="bg-pine-dark/60 border border-sand-light/10 rounded-sm p-6 space-y-4">
-            {["Flight-tracked airport pickup", "Direct hotel & lodge transfers", "Game drives with driver-guides", "Timed departure transfer"].map((item) => (
+            {["Senior drivers & premium vehicles", "Priority scheduling", "Optional: flight-tracked airport pickup", "Optional: game drives & hotel transfers"].map((item) => (
               <div key={item} className="flex items-center gap-3 text-sm text-sand-light/90">
                 <span className="w-1.5 h-1.5 rounded-full bg-brass-light flex-shrink-0" />
                 {item}
@@ -205,6 +216,38 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Feedback teaser */}
+      {testimonials.length > 0 && (
+        <section className="max-w-6xl mx-auto px-6 py-20">
+          <div className="flex items-end justify-between mb-10">
+            <div>
+              <div className="text-xs uppercase tracking-[0.25em] font-mono text-brass-dark mb-3">
+                From travelers
+              </div>
+              <h2 className="font-display text-3xl text-pine">What people say.</h2>
+            </div>
+            <Link to="/feedback" className="text-sm font-medium text-brass-dark hover:text-brass hidden sm:block">
+              Read more / share yours →
+            </Link>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-6">
+            {testimonials.map((t) => (
+              <div key={t.id} className="bg-white/60 border border-brass/20 rounded-sm p-5">
+                <div className="flex gap-1 mb-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill={i < t.rating ? "#B08D57" : "none"} stroke="#B08D57" strokeWidth="1.5">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z" strokeLinejoin="round" />
+                    </svg>
+                  ))}
+                </div>
+                <p className="text-sm text-ink/75 leading-relaxed mb-3">"{t.message}"</p>
+                <div className="text-xs text-ink/50">{t.full_name}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* CTA band */}
       <section className="bg-sand">

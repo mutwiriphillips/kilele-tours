@@ -20,8 +20,10 @@ export default function Footer() {
             <li><Link to="/services" className="hover:text-brass-light">Services</Link></li>
             <li><Link to="/fleet" className="hover:text-brass-light">Our fleet</Link></li>
             <li><Link to="/itinerary" className="hover:text-brass-light">Itinerary planner</Link></li>
-            <li><Link to="/vip" className="hover:text-brass-light">VIP International</Link></li>
+            <li><Link to="/vip" className="hover:text-brass-light">VIP service</Link></li>
+            <li><Link to="/feedback" className="hover:text-brass-light">Feedback</Link></li>
             <li><Link to="/request-quote" className="hover:text-brass-light">Request a quote</Link></li>
+            <li><Link to="/policy" className="hover:text-brass-light">Booking &amp; payment policy</Link></li>
             <li><Link to="/about" className="hover:text-brass-light">About Kilele</Link></li>
           </ul>
         </div>

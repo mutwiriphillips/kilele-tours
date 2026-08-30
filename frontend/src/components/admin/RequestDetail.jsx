@@ -9,6 +9,28 @@ const STATUS_OPTIONS = [
   { id: "cancelled", label: "Cancelled" }
 ];
 
+const PAYMENT_METHODS = [
+  { id: "mpesa", label: "M-Pesa" },
+  { id: "bank_transfer", label: "Bank transfer" },
+  { id: "cash", label: "Cash" },
+  { id: "card", label: "Card" },
+  { id: "other", label: "Other" }
+];
+
+const PAYMENT_TYPES = [
+  { id: "deposit", label: "Deposit" },
+  { id: "balance", label: "Balance" },
+  { id: "full", label: "Full payment" },
+  { id: "other", label: "Other" }
+];
+
+const PAYMENT_STATUS_LABEL = {
+  unpaid: "Unpaid",
+  partial: "Partially paid",
+  deposit_paid: "Deposit paid",
+  paid_in_full: "Paid in full"
+};
+
 export default function RequestDetail({ request, onClose, onUpdated }) {
   const [price, setPrice] = useState(request.quoted_price || "");
   const [message, setMessage] = useState(request.quoted_message || "");
@@ -17,11 +39,27 @@ export default function RequestDetail({ request, onClose, onUpdated }) {
   const [sendError, setSendError] = useState("");
   const [statusSaving, setStatusSaving] = useState(false);
 
+  const [payments, setPayments] = useState([]);
+  const [payAmount, setPayAmount] = useState("");
+  const [payMethod, setPayMethod] = useState("mpesa");
+  const [payType, setPayType] = useState("deposit");
+  const [payRef, setPayRef] = useState("");
+  const [payNotes, setPayNotes] = useState("");
+  const [payError, setPayError] = useState("");
+  const [paySaving, setPaySaving] = useState(false);
+  const [payResult, setPayResult] = useState(null);
+
   useEffect(() => {
     setPrice(request.quoted_price || "");
     setMessage(request.quoted_message || "");
     setSendResult(null);
     setSendError("");
+    setPayResult(null);
+    setPayAmount("");
+    setPayRef("");
+    setPayNotes("");
+    setPayError("");
+    adminApi.listPayments(request.id).then(setPayments).catch(() => {});
   }, [request.id]);
 
   async function handleStatusChange(status) {
@@ -54,6 +92,31 @@ export default function RequestDetail({ request, onClose, onUpdated }) {
   function copyMessage() {
     const text = message || sendResult?.quoted_message || "";
     navigator.clipboard?.writeText(text);
+  }
+
+  async function handleRecordPayment(e) {
+    e.preventDefault();
+    setPaySaving(true);
+    setPayError("");
+    try {
+      const result = await adminApi.recordPayment(request.id, {
+        amount: payAmount,
+        method: payMethod,
+        payment_type: payType,
+        transaction_ref: payRef,
+        notes: payNotes
+      });
+      setPayResult(result);
+      setPayments((prev) => [result.payment, ...prev]);
+      onUpdated(result.request);
+      setPayAmount("");
+      setPayRef("");
+      setPayNotes("");
+    } catch (err) {
+      setPayError(err.message);
+    } finally {
+      setPaySaving(false);
+    }
   }
 
   return (
@@ -100,7 +163,9 @@ export default function RequestDetail({ request, onClose, onUpdated }) {
           <div>
             <div className="text-xs uppercase tracking-[0.15em] font-mono text-brass-dark mb-2">Trip</div>
             <dl className="text-sm space-y-1.5">
-              <Row label="Tier" value={request.tier === "vip" ? "VIP International" : "Standard"} />
+              <Row label="Tier" value={request.tier === "vip" ? "VIP" : "Standard"} />
+              <Row label="Traveler" value={request.traveler_type === "international" ? "International" : "Local"} />
+              <Row label="Driver" value={request.rental_type === "self_drive" ? "Self-drive (own driver)" : "Chauffeur-driven"} />
               <Row label="Occasion" value={request.occasion} />
               <Row label="Date" value={request.travel_date} />
               <Row label="Passengers" value={request.passengers} />
@@ -112,7 +177,19 @@ export default function RequestDetail({ request, onClose, onUpdated }) {
             </dl>
           </div>
 
-          {request.tier === "vip" && (
+          {request.rental_type === "self_drive" && (
+            <div>
+              <div className="text-xs uppercase tracking-[0.15em] font-mono text-brass-dark mb-2">
+                Self-drive license
+              </div>
+              <dl className="text-sm space-y-1.5">
+                <Row label="License number" value={request.driver_license_number} />
+                <Row label="Issued by" value={request.driver_license_country} />
+              </dl>
+            </div>
+          )}
+
+          {request.needs_airport_pickup === 1 && (
             <div>
               <div className="text-xs uppercase tracking-[0.15em] font-mono text-brass-dark mb-2">
                 Arrival &amp; stay
@@ -218,6 +295,144 @@ export default function RequestDetail({ request, onClose, onUpdated }) {
               </div>
             )}
           </div>
+
+          {/* Payments */}
+          {request.quoted_price && (
+            <div className="border-t border-brass/20 pt-6">
+              <div className="text-xs uppercase tracking-[0.15em] font-mono text-brass-dark mb-3">
+                Payments
+              </div>
+
+              <div className="bg-white border border-brass/20 rounded-sm p-4 mb-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-ink/60">Status</span>
+                  <span className="font-medium text-pine">
+                    {PAYMENT_STATUS_LABEL[request.payment_status] || request.payment_status}
+                  </span>
+                </div>
+                <div className="w-full bg-sand rounded-full h-2 my-2 overflow-hidden">
+                  <div
+                    className="bg-brass h-full transition-all"
+                    style={{
+                      width: `${Math.min(100, Math.round(((request.amount_paid || 0) / request.quoted_price) * 100))}%`
+                    }}
+                  />
+                </div>
+                <div className="flex justify-between text-xs text-ink/50">
+                  <span>KES {(request.amount_paid || 0).toLocaleString()} paid</span>
+                  <span>of KES {request.quoted_price.toLocaleString()}</span>
+                </div>
+                {request.deposit_amount && (
+                  <div className="text-xs text-ink/40 mt-1">
+                    20% deposit: KES {request.deposit_amount.toLocaleString()}
+                  </div>
+                )}
+              </div>
+
+              {payments.length > 0 && (
+                <div className="space-y-2 mb-4">
+                  {payments.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between text-xs bg-white/60 border border-brass/15 rounded-sm px-3 py-2">
+                      <div>
+                        <span className="font-medium text-ink/80">KES {p.amount.toLocaleString()}</span>
+                        <span className="text-ink/50"> · {p.method} · {p.payment_type}</span>
+                      </div>
+                      <a
+                        href={`/receipt/${p.receipt_number}?ref=${request.reference}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-brass-dark hover:text-brass font-medium"
+                      >
+                        {p.receipt_number} ↗
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <form onSubmit={handleRecordPayment} className="space-y-3 bg-sand/50 border border-brass/20 rounded-sm p-4">
+                <div className="text-xs font-semibold text-pine">Record a payment</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    placeholder="Amount (KES)"
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(e.target.value)}
+                    className="bg-white border border-brass/30 rounded-sm px-3 py-2 text-sm focus:border-brass"
+                  />
+                  <select
+                    value={payMethod}
+                    onChange={(e) => setPayMethod(e.target.value)}
+                    className="bg-white border border-brass/30 rounded-sm px-3 py-2 text-sm focus:border-brass"
+                  >
+                    {PAYMENT_METHODS.map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <select
+                    value={payType}
+                    onChange={(e) => setPayType(e.target.value)}
+                    className="bg-white border border-brass/30 rounded-sm px-3 py-2 text-sm focus:border-brass"
+                  >
+                    {PAYMENT_TYPES.map((t) => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Transaction ref (optional)"
+                    value={payRef}
+                    onChange={(e) => setPayRef(e.target.value)}
+                    className="bg-white border border-brass/30 rounded-sm px-3 py-2 text-sm focus:border-brass"
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Notes (optional)"
+                  value={payNotes}
+                  onChange={(e) => setPayNotes(e.target.value)}
+                  className="w-full bg-white border border-brass/30 rounded-sm px-3 py-2 text-sm focus:border-brass"
+                />
+
+                {payError && (
+                  <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-sm px-3 py-2">
+                    {payError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={paySaving}
+                  className="w-full bg-brass text-pine-dark font-medium px-4 py-2.5 rounded-sm hover:bg-brass-light transition-colors disabled:opacity-60"
+                >
+                  {paySaving ? "Recording…" : "Record payment & generate receipt"}
+                </button>
+              </form>
+
+              {payResult && (
+                <div className="mt-3 bg-white border border-brass/25 rounded-sm p-4">
+                  <p className="text-xs text-ink/50 mb-2">
+                    Payment recorded
+                    {payResult.request.status === "confirmed" && request.status !== "confirmed"
+                      ? " — booking automatically confirmed (deposit threshold reached)."
+                      : "."}
+                  </p>
+                  <a
+                    href={payResult.receiptUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium bg-pine text-sand-light px-4 py-2 rounded-sm hover:bg-pine-dark inline-block"
+                  >
+                    View / share receipt →
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

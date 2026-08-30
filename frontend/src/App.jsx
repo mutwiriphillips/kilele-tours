@@ -10,18 +10,35 @@ import IzuruPreview from "./pages/IzuruPreview";
 import RequestQuote from "./pages/RequestQuote";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
+import Policy from "./pages/Policy";
+import Feedback from "./pages/Feedback";
+import Receipt from "./pages/Receipt";
 import Admin from "./pages/Admin";
 import { ItineraryProvider } from "./context/ItineraryContext";
 
 export default function App() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith("/admin");
+  const isReceipt = location.pathname.startsWith("/receipt");
 
   if (isAdmin) {
     return (
       <div className="min-h-screen">
         <Routes>
           <Route path="/admin" element={<Admin />} />
+        </Routes>
+      </div>
+    );
+  }
+
+  // Receipts render standalone (no public nav) since they're meant to be
+  // printed or saved as a PDF, and are often opened from a WhatsApp/email
+  // link rather than by browsing the site.
+  if (isReceipt) {
+    return (
+      <div className="min-h-screen">
+        <Routes>
+          <Route path="/receipt/:receiptNumber" element={<Receipt />} />
         </Routes>
       </div>
     );
@@ -40,6 +57,8 @@ export default function App() {
             <Route path="/itinerary" element={<Itinerary />} />
             <Route path="/izuru-preview/:siteId" element={<IzuruPreview />} />
             <Route path="/request-quote" element={<RequestQuote />} />
+            <Route path="/policy" element={<Policy />} />
+            <Route path="/feedback" element={<Feedback />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
           </Routes>

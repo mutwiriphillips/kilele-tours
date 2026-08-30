@@ -36,6 +36,12 @@ export default function Fleet() {
           New: drag through a 360° walkthrough of any vehicle before you
           request it — no surprises when it pulls up.
         </p>
+        <p className="text-ink/50 text-sm mt-1">
+          Saloons, 4x4s, and the luxury van are available self-drive —
+          bring your own driver. See our{" "}
+          <Link to="/policy" className="underline hover:text-brass-dark">booking policy</Link> for
+          self-drive terms.
+        </p>
       </div>
 
       {status === "loading" && (
@@ -53,13 +59,24 @@ export default function Fleet() {
             key={v.id}
             className="bg-white/60 border border-brass/20 rounded-sm p-6 flex flex-col"
           >
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-2 gap-2">
               <div className="text-xs uppercase tracking-[0.15em] font-mono text-brass-dark">
                 {v.category}
               </div>
-              <span className="text-[10px] font-mono uppercase tracking-wide bg-pine/10 text-pine px-2 py-1 rounded-full">
-                360° tour
-              </span>
+              <div className="flex gap-1.5 flex-shrink-0">
+                {v.self_drive_eligible ? (
+                  <span className="text-[10px] font-mono uppercase tracking-wide bg-brass/15 text-brass-dark px-2 py-1 rounded-full">
+                    Self-drive OK
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-mono uppercase tracking-wide bg-ink/5 text-ink/50 px-2 py-1 rounded-full">
+                    Chauffeur only
+                  </span>
+                )}
+                <span className="text-[10px] font-mono uppercase tracking-wide bg-pine/10 text-pine px-2 py-1 rounded-full">
+                  360° tour
+                </span>
+              </div>
             </div>
             <h3 className="font-display text-xl text-pine mb-2">{v.name}</h3>
             <p className="text-sm text-ink/70 leading-relaxed mb-4 flex-1">
