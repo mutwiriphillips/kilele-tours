@@ -106,7 +106,7 @@ export default function Policy() {
       </div>
 
       <div className="mt-14 pt-8 border-t border-brass/20 text-xs text-ink/40">
-        Last updated August 2026. Kilele Tours &amp; Travel, Embu, Kenya.
+        Last updated August 2026. Kilele Tours &amp; Travel, Nairobi, Kenya.
       </div>
     </div>
   );

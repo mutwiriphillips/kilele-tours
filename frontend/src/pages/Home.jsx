@@ -57,7 +57,7 @@ export default function Home() {
 
         <div className="relative z-10 max-w-6xl mx-auto px-6 pt-24 pb-40 md:pt-32 md:pb-56">
           <div className="text-xs uppercase tracking-[0.25em] font-mono text-brass-light mb-6">
-            Est. Embu, Kenya
+            Est. Nairobi, Kenya
           </div>
           <h1 className="font-display text-4xl sm:text-5xl md:text-6xl leading-[1.08] max-w-3xl drop-shadow-lg">
             The Big Five, the Migration,

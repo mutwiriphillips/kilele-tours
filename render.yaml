@@ -15,6 +15,16 @@ services:
         value: 22.11.0
       - key: ADMIN_PASSWORD
         sync: false
+      # Optional — enables real email sending (booking confirmations to
+      # customers, new-request alerts to staff). Leave blank in the Render
+      # dashboard to skip; the app falls back to WhatsApp-only notifications
+      # without erroring. See .env.example for how to generate these.
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: ADMIN_ALERT_EMAIL
+        sync: false
     # Render's free plan does not support persistent disks — the SQLite
     # database will reset on every redeploy and on periodic free-plan
     # restarts. Fine for testing the deployment; upgrade to at least the

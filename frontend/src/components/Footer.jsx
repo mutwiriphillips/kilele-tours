@@ -33,8 +33,8 @@ export default function Footer() {
             Reach us
           </div>
           <ul className="space-y-2 text-sm text-sand/90">
-            <li>Embu, Kenya</li>
-            <li>+254 700 000 000</li>
+            <li>Nairobi, Kenya</li>
+            <li>+254 719 355 057</li>
             <li>bookings@kileletours.co.ke</li>
             <li>Mon–Sun, 7am–8pm</li>
           </ul>

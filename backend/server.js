@@ -6,6 +6,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { customAlphabet } from "nanoid";
 import db from "./db.js";
+import { isEmailConfigured, sendConfirmationEmail, buildConfirmationWhatsAppMessage, sendAdminAlertEmail } from "./mailer.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -197,6 +198,19 @@ app.post("/api/quotes", (req, res) => {
 
   const created = db.prepare("SELECT * FROM quote_requests WHERE reference = ?").get(reference);
   res.status(201).json(created);
+
+  // Alert staff a new request came in. Deliberately not awaited before
+  // responding — the customer just wants their reference number back
+  // quickly, not to wait on an email round-trip (or the SMTP timeout if
+  // the network can't reach Gmail). The result is recorded once it
+  // resolves, purely for admin-side visibility/debugging.
+  sendAdminAlertEmail(created)
+    .then((result) => {
+      db.prepare("UPDATE quote_requests SET admin_alert_status = ? WHERE id = ?").run(result.status, created.id);
+    })
+    .catch(() => {
+      db.prepare("UPDATE quote_requests SET admin_alert_status = 'failed' WHERE id = ?").run(created.id);
+    });
 });
 
 app.get("/api/quotes/:reference", (req, res) => {
@@ -231,6 +245,15 @@ app.get("/api/admin/quotes", requireAdmin, (req, res) => {
   res.json(rows);
 });
 
+// Lightweight count for the admin dashboard's alert badge — polled
+// periodically rather than pulling the full request list each time.
+app.get("/api/admin/quotes/pending-count", requireAdmin, (req, res) => {
+  const { count } = db.prepare(
+    "SELECT COUNT(*) as count FROM quote_requests WHERE status = 'pending'"
+  ).get();
+  res.json({ count });
+});
+
 // Single request detail (protected)
 app.get("/api/admin/quotes/:id", requireAdmin, (req, res) => {
   const row = db.prepare(`
@@ -244,17 +267,27 @@ app.get("/api/admin/quotes/:id", requireAdmin, (req, res) => {
 });
 
 // Update status only (protected) — e.g. mark confirmed / declined / cancelled
-app.patch("/api/admin/quotes/:id", requireAdmin, (req, res) => {
+app.patch("/api/admin/quotes/:id", requireAdmin, async (req, res) => {
   const { status } = req.body;
   if (!VALID_STATUSES.includes(status)) {
     return res.status(400).json({ error: `Status must be one of: ${VALID_STATUSES.join(", ")}` });
   }
-  const result = db.prepare(
+
+  const before = db.prepare("SELECT * FROM quote_requests WHERE id = ?").get(req.params.id);
+  if (!before) return res.status(404).json({ error: "Request not found" });
+
+  db.prepare(
     "UPDATE quote_requests SET status = @status, updated_at = datetime('now') WHERE id = @id"
   ).run({ status, id: req.params.id });
-  if (result.changes === 0) return res.status(404).json({ error: "Request not found" });
+
+  let notification = null;
+  if (status === "confirmed" && before.status !== "confirmed") {
+    const updatedRow = db.prepare("SELECT * FROM quote_requests WHERE id = ?").get(req.params.id);
+    notification = await runBookingConfirmation(updatedRow);
+  }
+
   const updated = db.prepare("SELECT * FROM quote_requests WHERE id = ?").get(req.params.id);
-  res.json(updated);
+  res.json(notification ? { ...updated, notification } : updated);
 });
 
 // Send a quote: records the price + message and marks the request "quoted".
@@ -316,6 +349,44 @@ function buildMailtoUrl(email, reference, message) {
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
 }
 
+// --- Booking confirmation notifications ----------------------------------
+// Runs whenever a request becomes "confirmed" — either automatically (a
+// payment crosses the deposit threshold) or manually (staff sets the status
+// directly). Email sends for real if Gmail credentials are configured.
+// WhatsApp can't be sent automatically without WhatsApp Business API access
+// (Meta app review + template approval — nobody has that configured here),
+// so this always returns a ready-to-open wa.me link instead and is honest
+// that opening it is a manual, one-click step for staff.
+async function runBookingConfirmation(request) {
+  const emailResult = await sendConfirmationEmail(request);
+
+  db.prepare(`
+    UPDATE quote_requests
+    SET confirmation_email_status = @status, confirmation_sent_at = datetime('now')
+    WHERE id = @id
+  `).run({ status: emailResult.status, id: request.id });
+
+  const whatsappMessage = buildConfirmationWhatsAppMessage(request);
+
+  return {
+    email: emailResult,
+    whatsappUrl: buildWhatsAppUrl(request.phone, whatsappMessage)
+  };
+}
+
+app.post("/api/admin/quotes/:id/send-confirmation", requireAdmin, async (req, res) => {
+  const request = db.prepare("SELECT * FROM quote_requests WHERE id = ?").get(req.params.id);
+  if (!request) return res.status(404).json({ error: "Request not found" });
+
+  const result = await runBookingConfirmation(request);
+  const updated = db.prepare("SELECT * FROM quote_requests WHERE id = ?").get(req.params.id);
+  res.json({ request: updated, ...result });
+});
+
+app.get("/api/admin/email-status", requireAdmin, (req, res) => {
+  res.json({ configured: isEmailConfigured() });
+});
+
 // --- Payments -----------------------------------------------------------
 // There's no payment gateway wired up (no M-Pesa/Stripe credentials) — this
 // records payments staff have already received by other means (M-Pesa till,
@@ -328,7 +399,7 @@ const PAYMENT_METHODS = ["mpesa", "bank_transfer", "cash", "card", "other"];
 const PAYMENT_TYPES = ["deposit", "balance", "full", "other"];
 const receiptId = customAlphabet("0123456789", 8);
 
-app.post("/api/admin/quotes/:id/payments", requireAdmin, (req, res) => {
+app.post("/api/admin/quotes/:id/payments", requireAdmin, async (req, res) => {
   const { amount, method, transaction_ref, payment_type, notes } = req.body;
 
   if (!amount || Number(amount) <= 0) {
@@ -344,6 +415,7 @@ app.post("/api/admin/quotes/:id/payments", requireAdmin, (req, res) => {
 
   const receiptNumber = "RCT-" + receiptId();
   const numericAmount = Number(amount);
+  let didAutoConfirm = false;
 
   const insertPayment = db.prepare(`
     INSERT INTO payments (quote_request_id, receipt_number, amount, method, transaction_ref, payment_type, notes)
@@ -381,6 +453,7 @@ app.post("/api/admin/quotes/:id/payments", requireAdmin, (req, res) => {
       request.status === "quoted" && (paymentStatus === "deposit_paid" || paymentStatus === "paid_in_full")
         ? "confirmed"
         : request.status;
+    didAutoConfirm = newStatus === "confirmed" && request.status !== "confirmed";
 
     db.prepare(`
       UPDATE quote_requests
@@ -392,13 +465,20 @@ app.post("/api/admin/quotes/:id/payments", requireAdmin, (req, res) => {
 
   updateRequest();
 
+  let notification = null;
+  if (didAutoConfirm) {
+    const rowForNotification = db.prepare("SELECT * FROM quote_requests WHERE id = ?").get(request.id);
+    notification = await runBookingConfirmation(rowForNotification);
+  }
+
   const updatedRequest = db.prepare("SELECT * FROM quote_requests WHERE id = ?").get(request.id);
   const payment = db.prepare("SELECT * FROM payments WHERE receipt_number = ?").get(receiptNumber);
 
   res.status(201).json({
     payment,
     request: updatedRequest,
-    receiptUrl: `/receipt/${receiptNumber}?ref=${updatedRequest.reference}`
+    receiptUrl: `/receipt/${receiptNumber}?ref=${updatedRequest.reference}`,
+    notification
   });
 });
 

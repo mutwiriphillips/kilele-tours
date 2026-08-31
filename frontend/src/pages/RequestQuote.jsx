@@ -384,7 +384,7 @@ export default function RequestQuote() {
           <Field label="Pickup location" error={errors.pickup}>
             <input
               type="text"
-              placeholder="e.g. Embu Town"
+              placeholder="e.g. Nairobi CBD"
               className={inputClass(errors.pickup)}
               value={form.pickup}
               onChange={(e) => update("pickup", e.target.value)}

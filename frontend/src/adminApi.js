@@ -55,6 +55,7 @@ export const adminApi = {
     const qs = params.toString();
     return request(`/admin/quotes${qs ? `?${qs}` : ""}`);
   },
+  getPendingCount: () => request("/admin/quotes/pending-count"),
   getQuote: (id) => request(`/admin/quotes/${id}`),
   updateStatus: (id, status) =>
     request(`/admin/quotes/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
@@ -63,6 +64,8 @@ export const adminApi = {
   listPayments: (id) => request(`/admin/quotes/${id}/payments`),
   recordPayment: (id, payload) =>
     request(`/admin/quotes/${id}/payments`, { method: "POST", body: JSON.stringify(payload) }),
+  sendConfirmation: (id) => request(`/admin/quotes/${id}/send-confirmation`, { method: "POST" }),
+  getEmailStatus: () => request("/admin/email-status"),
   listFeedback: (filters = {}) => {
     const params = new URLSearchParams();
     if (filters.approved !== undefined && filters.approved !== "") params.set("approved", filters.approved);

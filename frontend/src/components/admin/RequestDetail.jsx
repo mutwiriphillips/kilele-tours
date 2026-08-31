@@ -31,6 +31,13 @@ const PAYMENT_STATUS_LABEL = {
   paid_in_full: "Paid in full"
 };
 
+const EMAIL_STATUS_LABEL = {
+  sent: { label: "Email sent", className: "bg-pine text-sand-light" },
+  failed: { label: "Email failed", className: "bg-red-100 text-red-700" },
+  not_configured: { label: "Email not configured", className: "bg-sand text-pine-dark" },
+  no_email_on_file: { label: "No email on file", className: "bg-sand text-pine-dark" }
+};
+
 export default function RequestDetail({ request, onClose, onUpdated }) {
   const [price, setPrice] = useState(request.quoted_price || "");
   const [message, setMessage] = useState(request.quoted_message || "");
@@ -49,6 +56,10 @@ export default function RequestDetail({ request, onClose, onUpdated }) {
   const [paySaving, setPaySaving] = useState(false);
   const [payResult, setPayResult] = useState(null);
 
+  const [confirmSending, setConfirmSending] = useState(false);
+  const [confirmResult, setConfirmResult] = useState(null);
+  const [confirmError, setConfirmError] = useState("");
+
   useEffect(() => {
     setPrice(request.quoted_price || "");
     setMessage(request.quoted_message || "");
@@ -59,6 +70,8 @@ export default function RequestDetail({ request, onClose, onUpdated }) {
     setPayRef("");
     setPayNotes("");
     setPayError("");
+    setConfirmResult(null);
+    setConfirmError("");
     adminApi.listPayments(request.id).then(setPayments).catch(() => {});
   }, [request.id]);
 
@@ -116,6 +129,20 @@ export default function RequestDetail({ request, onClose, onUpdated }) {
       setPayError(err.message);
     } finally {
       setPaySaving(false);
+    }
+  }
+
+  async function handleSendConfirmation() {
+    setConfirmSending(true);
+    setConfirmError("");
+    try {
+      const result = await adminApi.sendConfirmation(request.id);
+      setConfirmResult(result);
+      onUpdated(result.request);
+    } catch (err) {
+      setConfirmError(err.message);
+    } finally {
+      setConfirmSending(false);
     }
   }
 
@@ -414,8 +441,8 @@ export default function RequestDetail({ request, onClose, onUpdated }) {
               </form>
 
               {payResult && (
-                <div className="mt-3 bg-white border border-brass/25 rounded-sm p-4">
-                  <p className="text-xs text-ink/50 mb-2">
+                <div className="mt-3 bg-white border border-brass/25 rounded-sm p-4 space-y-3">
+                  <p className="text-xs text-ink/50">
                     Payment recorded
                     {payResult.request.status === "confirmed" && request.status !== "confirmed"
                       ? " — booking automatically confirmed (deposit threshold reached)."
@@ -429,6 +456,78 @@ export default function RequestDetail({ request, onClose, onUpdated }) {
                   >
                     View / share receipt →
                   </a>
+
+                  {payResult.notification && (
+                    <div className="pt-3 border-t border-brass/15">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs text-ink/50">Confirmation notification:</span>
+                        <EmailStatusBadge status={payResult.notification.email.status} />
+                      </div>
+                      <a
+                        href={payResult.notification.whatsappUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium border border-brass/30 text-pine px-4 py-2 rounded-sm hover:bg-sand inline-block"
+                      >
+                        Open WhatsApp confirmation
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Booking confirmation notification */}
+          {request.status === "confirmed" && (
+            <div className="border-t border-brass/20 pt-6">
+              <div className="text-xs uppercase tracking-[0.15em] font-mono text-brass-dark mb-3">
+                Booking confirmation
+              </div>
+
+              <div className="bg-white border border-brass/20 rounded-sm p-4 mb-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm text-ink/60">Email</span>
+                  <EmailStatusBadge status={request.confirmation_email_status} />
+                </div>
+                {request.confirmation_sent_at && (
+                  <div className="text-xs text-ink/40">Last attempt: {request.confirmation_sent_at}</div>
+                )}
+              </div>
+
+              {confirmError && (
+                <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-sm px-4 py-2.5 mb-3">
+                  {confirmError}
+                </p>
+              )}
+
+              <button
+                onClick={handleSendConfirmation}
+                disabled={confirmSending}
+                className="w-full bg-pine text-sand-light font-medium px-6 py-3 rounded-sm hover:bg-pine-dark transition-colors disabled:opacity-60 mb-3"
+              >
+                {confirmSending ? "Sending…" : request.confirmation_sent_at ? "Resend confirmation" : "Send confirmation"}
+              </button>
+
+              {confirmResult && (
+                <div className="bg-white border border-brass/25 rounded-sm p-4">
+                  <p className="text-xs text-ink/50 mb-2">
+                    {confirmResult.email.status === "sent"
+                      ? "Confirmation email sent."
+                      : confirmResult.email.status === "not_configured"
+                      ? "Email isn't configured on this server (see README) — use WhatsApp instead."
+                      : confirmResult.email.status === "no_email_on_file"
+                      ? "This customer didn't leave an email — use WhatsApp instead."
+                      : `Email failed to send${confirmResult.email.error ? `: ${confirmResult.email.error}` : ""}.`}
+                  </p>
+                  <a
+                    href={confirmResult.whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium bg-pine text-sand-light px-4 py-2 rounded-sm hover:bg-pine-dark inline-block"
+                  >
+                    Open WhatsApp confirmation
+                  </a>
                 </div>
               )}
             </div>
@@ -436,6 +535,18 @@ export default function RequestDetail({ request, onClose, onUpdated }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function EmailStatusBadge({ status }) {
+  if (!status) {
+    return <span className="text-xs text-ink/40">Not sent yet</span>;
+  }
+  const info = EMAIL_STATUS_LABEL[status] || { label: status, className: "bg-sand text-pine-dark" };
+  return (
+    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${info.className}`}>
+      {info.label}
+    </span>
   );
 }
 

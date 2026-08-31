@@ -21,6 +21,7 @@ export default function Admin() {
   const [statusFilter, setStatusFilter] = useState("");
   const [tierFilter, setTierFilter] = useState("");
   const [selected, setSelected] = useState(null);
+  const [pendingCount, setPendingCount] = useState(0);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -39,6 +40,34 @@ export default function Admin() {
     if (loggedIn) load();
   }, [loggedIn, load]);
 
+  // Poll for new pending requests so staff notice without refreshing —
+  // this is the in-app half of the alert; sendAdminAlertEmail (server-side)
+  // is the out-of-app half, firing once per new request regardless of
+  // whether anyone has the dashboard open.
+  useEffect(() => {
+    if (!loggedIn) return;
+
+    let cancelled = false;
+    function poll() {
+      adminApi
+        .getPendingCount()
+        .then(({ count }) => {
+          if (cancelled) return;
+          setPendingCount(count);
+          document.title = count > 0 ? `(${count}) Kilele Admin` : "Kilele Admin";
+        })
+        .catch(() => {});
+    }
+
+    poll();
+    const interval = setInterval(poll, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.title = "Kilele Admin";
+    };
+  }, [loggedIn]);
+
   if (!loggedIn) {
     return <AdminLogin onLoggedIn={() => setLoggedIn(true)} />;
   }
@@ -51,6 +80,7 @@ export default function Admin() {
   function handleUpdated(updated) {
     setRequests((prev) => prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)));
     setSelected((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
+    adminApi.getPendingCount().then(({ count }) => setPendingCount(count)).catch(() => {});
   }
 
   const counts = requests.reduce((acc, r) => {
@@ -65,7 +95,14 @@ export default function Admin() {
           <div className="text-xs uppercase tracking-[0.2em] font-mono text-brass-dark mb-1">
             Staff area
           </div>
-          <h1 className="font-display text-3xl text-pine">Requests</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="font-display text-3xl text-pine">Requests</h1>
+            {pendingCount > 0 && (
+              <span className="bg-brass text-pine-dark text-xs font-bold px-2.5 py-1 rounded-full">
+                {pendingCount} new
+              </span>
+            )}
+          </div>
         </div>
         <button
           onClick={handleLogout}
@@ -74,6 +111,20 @@ export default function Admin() {
           Sign out
         </button>
       </div>
+
+      {pendingCount > 0 && tab === "requests" && (
+        <div className="bg-brass/15 border border-brass/30 rounded-sm px-4 py-3 mb-6 flex items-center justify-between gap-3">
+          <span className="text-sm text-pine-dark">
+            {pendingCount} {pendingCount === 1 ? "request is" : "requests are"} waiting for a quote.
+          </span>
+          <button
+            onClick={() => setStatusFilter("pending")}
+            className="text-xs font-semibold text-brass-dark hover:text-pine flex-shrink-0"
+          >
+            Show them →
+          </button>
+        </div>
+      )}
 
       <div className="flex gap-2 mb-8 bg-sand border border-brass/25 rounded-full p-1 max-w-xs">
         {[

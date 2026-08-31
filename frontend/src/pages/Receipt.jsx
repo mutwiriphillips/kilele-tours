@@ -76,7 +76,7 @@ export default function Receipt() {
               <div className="text-xs uppercase tracking-[0.15em] text-brass-dark font-mono">Tours &amp; Travel</div>
             </div>
             <div className="text-right text-xs text-ink/50">
-              <div>Embu, Kenya</div>
+              <div>Nairobi, Kenya</div>
               <div>bookings@kileletours.co.ke</div>
             </div>
           </div>

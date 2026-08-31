@@ -47,6 +47,12 @@ match your real fleet. If you skip `ADMIN_PASSWORD`, the server falls back
 to `kilele-admin` and logs a warning — fine for poking around locally,
 not for anything real.
 
+To test real email sending locally (booking confirmations, new-request
+alerts), also set `GMAIL_USER` and `GMAIL_APP_PASSWORD` — see
+`.env.example` for the 2-minute setup. Without them, everything still
+works; email attempts just report `not_configured` and the app falls
+back to the WhatsApp deep-link flow.
+
 **2. Start the frontend** (runs on http://localhost:5173)
 
 ```bash
@@ -206,6 +212,57 @@ the running total against the quoted price.
   alone (which are short and could plausibly be guessed or enumerated)
   aren't sufficient to view someone else's payment history.
 
+### Notifications (email + WhatsApp)
+
+Two separate notification moments, both optional to configure and both
+degrading honestly rather than pretending to work without setup:
+
+**1. Booking confirmation, to the customer.** Fires automatically the
+moment a request becomes `confirmed` — whether that's the automatic
+20%-deposit rule above, or staff manually setting the status. Two
+channels:
+- **Email**, via Gmail SMTP (`backend/mailer.js`, using `nodemailer`).
+  Needs `GMAIL_USER` + `GMAIL_APP_PASSWORD` set (see `.env.example` for
+  the 2-minute setup — turn on 2-Step Verification, generate an App
+  Password, done — no Google Cloud project or OAuth flow required). If
+  unset, every attempt records `confirmation_email_status = "not_configured"`
+  and moves on rather than erroring.
+- **WhatsApp**, via a `wa.me` deep link with the confirmation message
+  pre-filled. This can't be sent automatically — real automated WhatsApp
+  requires WhatsApp Business API access (a Meta-reviewed app plus
+  approved message templates), which nobody has configured here — so the
+  admin panel surfaces a ready-to-click "Open WhatsApp confirmation"
+  button instead, both right after an auto-confirming payment and in a
+  dedicated "Booking confirmation" panel section (with a Send/Resend
+  button) for any confirmed request.
+
+**2. New-request alert, to staff.** Fires the moment a customer submits
+`POST /api/quotes` — two channels, again:
+- **Email** to `ADMIN_ALERT_EMAIL` (falls back to `GMAIL_USER` if unset),
+  summarizing the request (customer, trip, tier, self-drive/VIP/airport-
+  pickup flags). Recorded on the request as `admin_alert_status`.
+  **Deliberately not awaited before responding to the customer** — the
+  person submitting a quote request just wants their reference number
+  back quickly, not to wait on an email round-trip or, worse, the 10-
+  second SMTP timeout if the network can't reach Gmail. Verified this
+  during development: response time to the customer is ~25ms regardless
+  of whether the email send succeeds, fails, or times out in the
+  background.
+- **In-app**, on the admin dashboard: a live badge next to "Requests"
+  showing the pending count, a dismissible-by-filtering banner
+  ("N requests are waiting for a quote — Show them →"), and the browser
+  tab title updates to `(N) Kilele Admin`. Polls
+  `GET /api/admin/quotes/pending-count` every 30 seconds, plus refreshes
+  immediately whenever a request's status changes locally (quoting a
+  request drops the count without waiting for the next poll).
+
+Both email functions (`sendConfirmationEmail`, `sendAdminAlertEmail` in
+`mailer.js`) share one transporter with explicit 10-second connection/
+greeting/socket timeouts — found and fixed a real hang during testing
+where a network-restricted environment made an unconfigured timeout wait
+indefinitely; better to fail fast and report `"failed"` than leave a
+request (or an admin's browser) hanging.
+
 ### Feedback moderation
 
 Submissions via `POST /api/feedback` are never public until approved.
@@ -251,6 +308,21 @@ quote was "sent" without a real delivery channel behind it would be
 misleading. If you later add a transactional email/SMS provider (Twilio,
 SendGrid, Africa's Talking), the natural place to wire it in is right
 after the `UPDATE` in `POST /api/admin/quotes/:id/quote` in `server.js`.
+
+This applies specifically to the *quote* step. A later step — the
+request becoming `confirmed` — does support real automatic email if
+Gmail credentials are configured; see "Notifications (email + WhatsApp)"
+above.
+
+**Booking confirmation.** Once a request is `confirmed`, a dedicated
+panel section shows the confirmation email's status and a Send/Resend
+button, plus the WhatsApp confirmation link. See "Notifications" above
+for exactly what's automatic and what's a manual click.
+
+**New-request alerts.** The dashboard header shows a live "N new" badge
+and a banner linking straight to the filtered pending list, and the
+browser tab title updates too — so a staff member with the dashboard
+open in a background tab still notices. See "Notifications" above.
 
 **Before this handles more** than a small team's day-to-day quoting:
 move sessions from in-memory (lost on every restart, and won't work if
@@ -356,11 +428,14 @@ do.
 | POST   | `/api/admin/login`            | —     | `{ password }` → `{ token, expiresAt }`  |
 | POST   | `/api/admin/logout`           | ✓     | Invalidate the current session token     |
 | GET    | `/api/admin/quotes`           | ✓     | List requests (optional `?status=` `?tier=`) |
+| GET    | `/api/admin/quotes/pending-count` | ✓ | `{ count }` of `status = "pending"` requests, for the dashboard alert badge |
 | GET    | `/api/admin/quotes/:id`       | ✓     | Single request, full detail              |
-| PATCH  | `/api/admin/quotes/:id`       | ✓     | `{ status }` → update status only        |
+| PATCH  | `/api/admin/quotes/:id`       | ✓     | `{ status }` → update status; if this sets `confirmed`, triggers the booking-confirmation notification |
 | POST   | `/api/admin/quotes/:id/quote` | ✓     | `{ price, message? }` → mark quoted, computes `deposit_amount`, returns `whatsappUrl` / `mailtoUrl` |
-| POST   | `/api/admin/quotes/:id/payments` | ✓  | `{ amount, method, transaction_ref?, payment_type?, notes? }` → records a payment, generates a receipt, may auto-confirm the booking |
+| POST   | `/api/admin/quotes/:id/payments` | ✓  | `{ amount, method, transaction_ref?, payment_type?, notes? }` → records a payment, generates a receipt, may auto-confirm the booking (and trigger its notification) |
 | GET    | `/api/admin/quotes/:id/payments` | ✓  | List payments recorded against a request |
+| POST   | `/api/admin/quotes/:id/send-confirmation` | ✓ | Manually (re)send the booking-confirmation email + get a fresh WhatsApp link |
+| GET    | `/api/admin/email-status`     | ✓     | `{ configured: boolean }` — whether Gmail credentials are set |
 | GET    | `/api/admin/feedback`         | ✓     | List all feedback (optional `?approved=0\|1`) |
 | PATCH  | `/api/admin/feedback/:id`     | ✓     | `{ approved }` → publish/unpublish       |
 | DELETE | `/api/admin/feedback/:id`     | ✓     | Delete a feedback entry                  |
@@ -382,7 +457,11 @@ true reveals/requires `flight_number`, `arrival_datetime`,
 
 `quote_requests` rows additionally carry: `deposit_amount` (20% of
 `quoted_price`, computed when a quote is sent), `amount_paid`,
-`payment_status` (`unpaid`|`partial`|`deposit_paid`|`paid_in_full`).
+`payment_status` (`unpaid`|`partial`|`deposit_paid`|`paid_in_full`),
+`confirmation_email_status` / `confirmation_sent_at` (outcome of the most
+recent booking-confirmation attempt), and `admin_alert_status` (outcome
+of the new-request staff alert — for debugging email delivery, not shown
+to the customer).
 
 ## Suggested next steps
 
@@ -392,15 +471,21 @@ true reveals/requires `flight_number`, `arrival_datetime`,
    Wiring it in doesn't change the data model much — it would call the
    same payment-recording logic that already exists, just triggered by a
    webhook instead of an admin form.
-2. **Notifications** — email or WhatsApp notification to staff when a
-   quote request or a self-drive booking comes in, with VIP + airport
-   pickup requests flagged urgently since they're time-sensitive against
-   a flight.
-3. **Real I-ZURU integration** — once I-ZURU has a real capture pipeline
+2. **Automated WhatsApp sending** — everything currently opens a
+   pre-filled `wa.me` link for a human to send. Fully automated sending
+   requires WhatsApp Business API access (a Meta-reviewed app plus
+   approved message templates for business-initiated conversations) —
+   worth pursuing once volume makes the manual click a real bottleneck,
+   not before.
+3. **SMS fallback** — a provider like Africa's Talking would cover
+   customers without WhatsApp or a habit of checking email; the
+   notification functions in `mailer.js` are already structured as
+   `{ status, error? }`-returning helpers a third channel could follow.
+4. **Real I-ZURU integration** — once I-ZURU has a real capture pipeline
    and player, swap the illustrated 360° mock and the `/izuru-preview`
    placeholder for the real embed/API, and link itinerary and VIP
    submissions to the specific I-ZURU listing the guest previewed.
-4. **Real branding assets** — swap in an actual logo; the current header
+5. **Real branding assets** — swap in an actual logo; the current header
    uses a text wordmark.
-5. **Harden the admin dashboard** before it handles more than a small
+6. **Harden the admin dashboard** before it handles more than a small
    team's daily quoting — see "Before this handles more" above.

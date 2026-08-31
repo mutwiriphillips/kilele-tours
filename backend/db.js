@@ -61,6 +61,9 @@ CREATE TABLE IF NOT EXISTS quote_requests (
   deposit_amount INTEGER,
   amount_paid INTEGER NOT NULL DEFAULT 0,
   payment_status TEXT NOT NULL DEFAULT 'unpaid',
+  confirmation_email_status TEXT,
+  confirmation_sent_at TEXT,
+  admin_alert_status TEXT,
   updated_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)

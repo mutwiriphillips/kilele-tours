@@ -13,7 +13,9 @@ export default function Contact() {
       <div className="grid sm:grid-cols-2 gap-8 mb-12">
         <div className="bg-white/60 border border-brass/20 rounded-sm p-6">
           <div className="text-xs uppercase tracking-[0.15em] font-mono text-brass-dark mb-2">Call or WhatsApp</div>
-          <div className="font-display text-2xl text-pine">+254 700 000 000</div>
+          <a href="tel:+254719355057" className="font-display text-2xl text-pine hover:text-pine-light transition-colors block">
+            +254 719 355 057
+          </a>
           <p className="text-sm text-ink/60 mt-2">Mon–Sun, 7am–8pm</p>
         </div>
         <div className="bg-white/60 border border-brass/20 rounded-sm p-6">
@@ -39,8 +41,8 @@ export default function Contact() {
       </div>
 
       <div className="mt-12 text-sm text-ink/60">
-        <div className="font-medium text-ink/80 mb-1">Office</div>
-        Embu, Embu County, Kenya
+        <div className="font-medium text-ink/80 mb-1">Head office</div>
+        Nairobi, Kenya
       </div>
     </div>
   );
