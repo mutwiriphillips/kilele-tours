@@ -1,7 +1,20 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { occasions, experiences } from "../content";
-import HeroScene from "../components/HeroScene";
+import heroImage from "../assets/photos/elephants-mt-kenya.jpg";
+import lionElephantImg from "../assets/photos/lion-elephant-goldenhour.jpg";
+import whiteRhinoImg from "../assets/photos/white-rhino-sky.jpg";
+import lionessesImg from "../assets/photos/lionesses-resting.jpg";
+import blackRhinoImg from "../assets/photos/black-rhino-dusk.jpg";
+
+// Real photography assigned to the two Signature Experience cards it
+// actually depicts — the other three (migration, coast, paragliding)
+// don't have a matching photo yet, so they keep the plain icon treatment
+// rather than pairing an unrelated image with a claim it doesn't back up.
+const cardPhotos = {
+  "big-five": whiteRhinoImg,
+  "mount-kenya": heroImage
+};
 
 const icons = {
   paw: (
@@ -51,11 +64,16 @@ export default function Home() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative overflow-hidden bg-pine text-sand-light">
-        <HeroScene className="absolute inset-0 w-full h-full" />
-        <div className="absolute inset-0 bg-gradient-to-t from-pine-dark/90 via-pine-dark/20 to-transparent" />
+      <section className="relative overflow-hidden bg-pine text-sand-light min-h-[560px] md:min-h-[680px] flex items-center">
+        <img
+          src={heroImage}
+          alt="A herd of elephants crossing the plain beneath Mount Kenya"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-pine-dark/92 via-pine-dark/55 to-pine-dark/15" />
+        <div className="absolute inset-0 bg-gradient-to-t from-pine-dark/70 via-transparent to-pine-dark/25" />
 
-        <div className="relative z-10 max-w-6xl mx-auto px-6 pt-24 pb-40 md:pt-32 md:pb-56">
+        <div className="relative z-10 max-w-6xl mx-auto px-6 py-20 w-full">
           <div className="text-xs uppercase tracking-[0.25em] font-mono text-brass-light mb-6">
             Est. Nairobi, Kenya
           </div>
@@ -109,23 +127,49 @@ export default function Home() {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {experiences.map((exp) => (
-            <Link
-              key={exp.id}
-              to={exp.link}
-              className="group bg-white/60 border border-brass/20 rounded-sm p-6 flex flex-col hover:border-brass/50 hover:shadow-md transition-all"
-            >
-              <span className="w-11 h-11 rounded-full bg-pine text-sand-light flex items-center justify-center mb-4 group-hover:bg-brass group-hover:text-pine-dark transition-colors">
-                {icons[exp.icon]}
-              </span>
-              <h3 className="font-display text-xl text-pine mb-1.5">{exp.title}</h3>
-              <p className="text-sm font-medium text-brass-dark mb-3">{exp.line}</p>
-              <p className="text-sm text-ink/65 leading-relaxed flex-1">{exp.detail}</p>
-              <span className="mt-4 text-xs font-semibold text-pine group-hover:text-brass-dark inline-flex items-center gap-1">
-                Explore →
-              </span>
-            </Link>
-          ))}
+          {experiences.map((exp) => {
+            const photo = cardPhotos[exp.id];
+            if (photo) {
+              return (
+                <Link
+                  key={exp.id}
+                  to={exp.link}
+                  className="group relative rounded-sm overflow-hidden h-64 flex flex-col justify-end p-6 text-sand-light"
+                >
+                  <img
+                    src={photo}
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-pine-dark/90 via-pine-dark/25 to-transparent" />
+                  <div className="relative z-10">
+                    <h3 className="font-display text-xl mb-1">{exp.title}</h3>
+                    <p className="text-sm font-medium text-brass-light mb-3">{exp.line}</p>
+                    <span className="text-xs font-semibold text-sand-light/90 group-hover:text-brass-light inline-flex items-center gap-1">
+                      Explore →
+                    </span>
+                  </div>
+                </Link>
+              );
+            }
+            return (
+              <Link
+                key={exp.id}
+                to={exp.link}
+                className="group bg-white/60 border border-brass/20 rounded-sm p-6 flex flex-col hover:border-brass/50 hover:shadow-md transition-all"
+              >
+                <span className="w-11 h-11 rounded-full bg-pine text-sand-light flex items-center justify-center mb-4 group-hover:bg-brass group-hover:text-pine-dark transition-colors">
+                  {icons[exp.icon]}
+                </span>
+                <h3 className="font-display text-xl text-pine mb-1.5">{exp.title}</h3>
+                <p className="text-sm font-medium text-brass-dark mb-3">{exp.line}</p>
+                <p className="text-sm text-ink/65 leading-relaxed flex-1">{exp.detail}</p>
+                <span className="mt-4 text-xs font-semibold text-pine group-hover:text-brass-dark inline-flex items-center gap-1">
+                  Explore →
+                </span>
+              </Link>
+            );
+          })}
 
           {/* CTA tile completing the grid */}
           <Link
@@ -141,6 +185,42 @@ export default function Home() {
               Open the planner →
             </span>
           </Link>
+        </div>
+      </section>
+
+      {/* Gallery — real photography, since claims about the Big Five and
+          Mt Kenya are more convincing shown than illustrated */}
+      <section className="bg-pine-dark">
+        <div className="max-w-6xl mx-auto px-6 py-24">
+          <div className="max-w-xl mb-14">
+            <div className="text-xs uppercase tracking-[0.25em] font-mono text-brass-light mb-3">
+              From the field
+            </div>
+            <h2 className="font-display text-3xl md:text-4xl text-sand-light">
+              What waits on the road.
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 md:grid-rows-2 gap-4 md:h-[560px]">
+            <GalleryTile
+              src={lionElephantImg}
+              alt="A lion watching an elephant at golden hour"
+              caption="Golden hour on the plains"
+              className="md:col-span-2 md:row-span-2 h-72 md:h-full"
+            />
+            <GalleryTile
+              src={lionessesImg}
+              alt="Two lionesses resting on the plains"
+              caption="At rest, watching everything"
+              className="h-56 md:h-full"
+            />
+            <GalleryTile
+              src={blackRhinoImg}
+              alt="A black rhino at dusk"
+              caption="A black rhino at dusk"
+              className="h-56 md:h-full"
+            />
+          </div>
         </div>
       </section>
 
@@ -267,6 +347,22 @@ export default function Home() {
           </Link>
         </div>
       </section>
+    </div>
+  );
+}
+
+function GalleryTile({ src, alt, caption, className = "" }) {
+  return (
+    <div className={`group relative rounded-sm overflow-hidden ${className}`}>
+      <img
+        src={src}
+        alt={alt}
+        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-pine-dark/70 via-transparent to-transparent" />
+      <div className="absolute bottom-4 left-4 text-sand-light text-sm font-medium drop-shadow">
+        {caption}
+      </div>
     </div>
   );
 }
