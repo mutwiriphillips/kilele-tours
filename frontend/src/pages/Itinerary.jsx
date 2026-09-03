@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { sites, siteCategories } from "../sites";
 import { useItinerary } from "../context/ItineraryContext";
+import PageHeader from "../components/PageHeader";
+import migrationVehicleImg from "../assets/photos/migration-vehicle-dust.jpg";
 
 export default function Itinerary() {
   const [params] = useSearchParams();
@@ -20,22 +22,13 @@ export default function Itinerary() {
 
   return (
     <div className="pb-28">
-      {/* Header */}
-      <section className="bg-pine text-sand-light">
-        <div className="max-w-6xl mx-auto px-6 pt-20 pb-14">
-          <div className="text-xs uppercase tracking-[0.25em] font-mono text-brass-light mb-4">
-            Itinerary Planner
-          </div>
-          <h1 className="font-display text-4xl leading-tight max-w-2xl mb-4">
-            Pick the places. We'll plan the roads between them.
-          </h1>
-          <p className="text-sand/80 max-w-xl leading-relaxed">
-            Browse Kenya's parks, coast, and heritage sites, preview any of
-            them on I-ZURU, and build a shortlist — then request one quote
-            covering the whole route.
-          </p>
-        </div>
-      </section>
+      <PageHeader
+        image={migrationVehicleImg}
+        alt="A safari vehicle following wildebeest and zebra during the migration"
+        eyebrow="Itinerary Planner"
+        title="Pick the places. We'll plan the roads between them."
+        subtitle="Browse Kenya's parks, coast, and heritage sites, preview any of them on I-ZURU, and build a shortlist — then request one quote covering the whole route."
+      />
 
       {/* Category filter */}
       <div className="sticky top-20 z-30 bg-sand-light/95 backdrop-blur border-b border-brass/20">

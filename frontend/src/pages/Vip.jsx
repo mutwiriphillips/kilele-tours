@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
 import { vipJourney } from "../content";
+import PageHeader from "../components/PageHeader";
+import paragliderImg from "../assets/photos/paraglider-canopy.jpg";
 
 const icons = {
   eye: (
@@ -42,33 +44,27 @@ const icons = {
 export default function Vip() {
   return (
     <div>
-      {/* Hero */}
-      <section className="bg-pine text-sand-light">
-        <div className="max-w-5xl mx-auto px-6 pt-20 pb-16 md:pt-28 md:pb-20">
-          <div className="text-xs uppercase tracking-[0.25em] font-mono text-brass-light mb-6">
-            VIP Service
-          </div>
-          <h1 className="font-display text-4xl sm:text-5xl leading-[1.1] max-w-2xl mb-6">
+      <PageHeader
+        image={paragliderImg}
+        alt="A paraglider soaring over the Rift Valley"
+        eyebrow="VIP Service"
+        title={
+          <>
             Priority service, door to door.
             <br />
             <span className="italic text-brass-light">Local or visiting — handled the same way.</span>
-          </h1>
-          <p className="text-sand/85 text-lg max-w-xl leading-relaxed mb-10">
-            VIP is our top service tier — senior drivers, premium vehicles,
-            and priority scheduling for any occasion, whether you live down
-            the road or you're landing from another continent. Flying in?
-            Pair VIP with airport pickup when you book, and we'll coordinate
-            the ground logistics around a property you've already previewed
-            in full.
-          </p>
+          </>
+        }
+        subtitle="VIP is our top service tier — senior drivers, premium vehicles, and priority scheduling for any occasion, whether you live down the road or you're landing from another continent. Flying in? Pair VIP with airport pickup when you book, and we'll coordinate the ground logistics around a property you've already previewed in full."
+        cta={
           <Link
             to="/request-quote?tier=vip"
-            className="bg-brass text-pine-dark font-medium px-7 py-3.5 rounded-sm hover:bg-brass-light transition-colors inline-block"
+            className="mt-6 bg-brass text-pine-dark font-medium px-7 py-3.5 rounded-sm hover:bg-brass-light transition-colors inline-block"
           >
             Request VIP service
           </Link>
-        </div>
-      </section>
+        }
+      />
 
       {/* The bridge: I-ZURU x Kilele */}
       <section className="bg-sand border-y border-brass/20">

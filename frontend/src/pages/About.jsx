@@ -1,13 +1,17 @@
+import PageHeader from "../components/PageHeader";
+import giraffesImg from "../assets/photos/giraffes-kilimanjaro.jpg";
+
 export default function About() {
   return (
-    <div className="max-w-3xl mx-auto px-6 py-20">
-      <div className="text-xs uppercase tracking-[0.25em] font-mono text-brass-dark mb-3">
-        About Kilele
-      </div>
-      <h1 className="font-display text-4xl text-pine mb-8">
-        A fleet built to be trusted with the important days.
-      </h1>
+    <div>
+      <PageHeader
+        image={giraffesImg}
+        alt="Giraffes grazing with Mount Kilimanjaro in the distance"
+        eyebrow="About Kilele"
+        title="A fleet built to be trusted with the important days."
+      />
 
+      <div className="max-w-3xl mx-auto px-6 py-20">
       <div className="space-y-6 text-ink/75 leading-relaxed">
         <p>
           Kilele started with a simple observation: the days people book
@@ -97,6 +101,7 @@ export default function About() {
             </p>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

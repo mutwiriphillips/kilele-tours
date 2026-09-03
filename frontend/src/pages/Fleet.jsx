@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import VehicleTour360 from "../components/VehicleTour360";
+import PageHeader from "../components/PageHeader";
+import bushBreakfastImg from "../assets/photos/bush-breakfast-safari.jpg";
 
 export default function Fleet() {
   const [vehicles, setVehicles] = useState([]);
@@ -19,30 +21,28 @@ export default function Fleet() {
   }, []);
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-20">
-      <div className="max-w-2xl mb-16">
-        <div className="text-xs uppercase tracking-[0.25em] font-mono text-brass-dark mb-3">
-          Our Fleet
+    <div>
+      <PageHeader
+        image={bushBreakfastImg}
+        alt="A Kilele safari vehicle parked under an acacia tree during a bush breakfast stop"
+        eyebrow="Our Fleet"
+        title="Maintained, inspected, and ready."
+        subtitle="Every vehicle goes through a roadworthiness check before it's assigned to a trip. Rates below are a daily guide — your quote will reflect distance, duration, and occasion."
+      />
+
+      <div className="max-w-6xl mx-auto px-6 py-20">
+        <div className="max-w-2xl mb-12">
+          <p className="text-ink/50 text-sm">
+            New: drag through a 360° walkthrough of any vehicle before you
+            request it — no surprises when it pulls up.
+          </p>
+          <p className="text-ink/50 text-sm mt-1">
+            Saloons, 4x4s, and the luxury van are available self-drive —
+            bring your own driver. See our{" "}
+            <Link to="/policy" className="underline hover:text-brass-dark">booking policy</Link> for
+            self-drive terms.
+          </p>
         </div>
-        <h1 className="font-display text-4xl text-pine mb-4">
-          Maintained, inspected, and ready.
-        </h1>
-        <p className="text-ink/70 leading-relaxed">
-          Every vehicle goes through a roadworthiness check before it's
-          assigned to a trip. Rates below are a daily guide — your quote will
-          reflect distance, duration, and occasion.
-        </p>
-        <p className="text-ink/50 text-sm mt-3">
-          New: drag through a 360° walkthrough of any vehicle before you
-          request it — no surprises when it pulls up.
-        </p>
-        <p className="text-ink/50 text-sm mt-1">
-          Saloons, 4x4s, and the luxury van are available self-drive —
-          bring your own driver. See our{" "}
-          <Link to="/policy" className="underline hover:text-brass-dark">booking policy</Link> for
-          self-drive terms.
-        </p>
-      </div>
 
       {status === "loading" && (
         <p className="text-ink/50 font-mono text-sm">Loading fleet…</p>
@@ -125,6 +125,7 @@ export default function Fleet() {
       {tourVehicle && (
         <VehicleTour360 vehicle={tourVehicle} onClose={() => setTourVehicle(null)} />
       )}
+      </div>
     </div>
   );
 }

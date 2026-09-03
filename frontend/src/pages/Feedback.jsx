@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { occasions } from "../content";
+import PageHeader from "../components/PageHeader";
+import migrationSunburstImg from "../assets/photos/migration-sunburst.jpg";
 
 const BASE = "/api";
 
@@ -50,21 +52,16 @@ export default function Feedback() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-20">
-      <div className="max-w-2xl mb-14">
-        <div className="text-xs uppercase tracking-[0.25em] font-mono text-brass-dark mb-3">
-          Feedback
-        </div>
-        <h1 className="font-display text-4xl text-pine mb-4">
-          How was your trip?
-        </h1>
-        <p className="text-ink/70 leading-relaxed">
-          Good or bad, we'd like to hear it. Reviews are read by our team
-          before they appear here, so there may be a short delay before
-          yours is visible.
-        </p>
-      </div>
+    <div>
+      <PageHeader
+        image={migrationSunburstImg}
+        alt="Wildebeest and zebra crossing the plains under a bright sun"
+        eyebrow="Feedback"
+        title="How was your trip?"
+        subtitle="Good or bad, we'd like to hear it. Reviews are read by our team before they appear here, so there may be a short delay before yours is visible."
+      />
 
+      <div className="max-w-5xl mx-auto px-6 py-20">
       <div className="grid lg:grid-cols-5 gap-12">
         {/* Form */}
         <div className="lg:col-span-2">
@@ -170,6 +167,7 @@ export default function Feedback() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

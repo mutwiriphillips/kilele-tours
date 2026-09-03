@@ -148,11 +148,12 @@ export default function RequestQuote() {
           Request a quote
         </div>
         <h1 className="font-display text-4xl text-pine mb-4">
-          Tell us about the trip.
+          Let's plan your trip.
         </h1>
         <p className="text-ink/70 leading-relaxed">
-          Fill in what you know — we'll follow up with a fixed price and
-          confirm the vehicle. No payment is required at this step.
+          Tell us where you're headed and what the day means to you — a
+          wedding, a safari, a quiet trip home. We'll come back with a
+          fixed price built around your trip, not a generic package.
         </p>
       </div>
 
